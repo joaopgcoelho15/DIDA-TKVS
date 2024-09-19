@@ -1,0 +1,9 @@
+dadkvs/server/DadkvsPaxosServiceImpl.class
+dadkvs/server/DadkvsServerState.class
+dadkvs/server/MainLoop.class
+dadkvs/server/KeyValueStore.class
+dadkvs/server/DadkvsConsoleServiceImpl.class
+dadkvs/server/DadkvsMainServiceImpl.class
+dadkvs/server/TransactionRecord.class
+dadkvs/server/VersionedValue.class
+dadkvs/server/DadkvsServer.class
