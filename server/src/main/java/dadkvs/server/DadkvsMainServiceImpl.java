@@ -39,6 +39,16 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         System.out.println("Receiving commit request:" + request);
 
         int reqid = request.getReqid();
+
+        if(server_state.i_am_leader){
+            //Fazer o codigo do broadcast para os outros servers
+        }
+
+        if(!server_state.i_am_leader & reqid != server_state.nextReqid) {
+            server_state.addPendingRequest(request);
+            return;
+        }
+
         int key1 = request.getKey1();
         int version1 = request.getVersion1();
         int key2 = request.getKey2();
