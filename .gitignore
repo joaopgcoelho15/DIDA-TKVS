@@ -1,0 +1,15 @@
+# IntelliJ IDEA
+.idea
+*.iml
+*.ipr
+*.iws
+.ijwb
+
+# Config
+contract/pom.xml
+
+# Temporary output dir for artifacts
+mvn-artifacts
+
+# Maven (examples)
+target
