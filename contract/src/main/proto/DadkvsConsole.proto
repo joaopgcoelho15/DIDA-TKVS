@@ -20,11 +20,18 @@ message SetDebugReply {
   bool ack = 1;
 }
 
+message Request {
+  int32 key = 1;
+  string value = 2;
+  int32 sequenceNumber = 3;
+}
+
+message Reply {
+  bool ack = 1;
+}
+
 service DadkvsConsoleService {
   rpc setleader (SetLeaderRequest) returns (SetLeaderReply);
   rpc setdebug (SetDebugRequest) returns (SetDebugReply);
 }
-
-
-
 

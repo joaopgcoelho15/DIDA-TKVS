@@ -1,6 +1,6 @@
-/Users/joaopgcoelho/Library/CloudStorage/OneDrive-Personal/Técnico/4ºano/DAD/DAD2425/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsConsole.java
-/Users/joaopgcoelho/Library/CloudStorage/OneDrive-Personal/Técnico/4ºano/DAD/DAD2425/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsPaxos.java
-/Users/joaopgcoelho/Library/CloudStorage/OneDrive-Personal/Técnico/4ºano/DAD/DAD2425/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsPaxosServiceGrpc.java
-/Users/joaopgcoelho/Library/CloudStorage/OneDrive-Personal/Técnico/4ºano/DAD/DAD2425/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsConsoleServiceGrpc.java
-/Users/joaopgcoelho/Library/CloudStorage/OneDrive-Personal/Técnico/4ºano/DAD/DAD2425/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsMain.java
-/Users/joaopgcoelho/Library/CloudStorage/OneDrive-Personal/Técnico/4ºano/DAD/DAD2425/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsMainServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsMain.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsMainServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsPaxos.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsPaxosServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsConsoleServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsConsole.java
