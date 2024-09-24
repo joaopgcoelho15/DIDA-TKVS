@@ -30,18 +30,8 @@ message Reply {
   bool ack = 1;
 }
 
-message BroadcastRequest {
-  int32 sequenceNumber = 1;
-  Request request = 2;
-}
-
-message BroadcastReply {
-  bool ack = 1;
-}
-
 service DadkvsConsoleService {
   rpc setleader (SetLeaderRequest) returns (SetLeaderReply);
   rpc setdebug (SetDebugRequest) returns (SetDebugReply);
-  rpc broadcastSequence (BroadcastRequest) returns (BroadcastReply);
 }
 

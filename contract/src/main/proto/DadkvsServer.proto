@@ -1,0 +1,15 @@
+/*
+
+ */
+
+syntax = "proto3";
+import "google/protobuf/empty.proto";
+package dadkvs;
+
+message ReqIdBroadcast {
+  int32 reqid = 1;
+}
+
+service DadkvsServerService {
+  rpc reqidbroadcast (ReqIdBroadcast) returns (google.protobuf.Empty);
+}

@@ -1,5 +1,13 @@
 package dadkvs.server;
 
+import dadkvs.DadkvsMain;
+import io.grpc.stub.StreamObserver;
+
+import java.util.ArrayList;
+import java.util.HashMap;
+import java.util.LinkedList;
+import java.util.List;
+
 public class DadkvsServerState {
     boolean i_am_leader;
     int debug_mode;
@@ -8,7 +16,10 @@ public class DadkvsServerState {
     int store_size;
     int nextReqid;
 
-    List<DadkvsMain.CommitRequest> pendingRequests;
+    LinkedList<Integer> idQueue;
+
+    HashMap<DadkvsMain.CommitRequest, StreamObserver<DadkvsMain.CommitReply>> pendingRequests;
+
 
     KeyValueStore store;
     MainLoop main_loop;
@@ -26,10 +37,11 @@ public class DadkvsServerState {
         main_loop = new MainLoop(this);
         main_loop_worker = new Thread(main_loop);
         main_loop_worker.start();
-        pendingRequests = new ArrayList<>();
+        pendingRequests = new HashMap<>();
+        idQueue = new LinkedList<>();
     }
 
-    public void addPendingRequest(DadkvsMain.CommitRequest request) {
-        pendingRequests.add(request);
+    public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {
+        pendingRequests.put(request, responseObserver);
     }
 }

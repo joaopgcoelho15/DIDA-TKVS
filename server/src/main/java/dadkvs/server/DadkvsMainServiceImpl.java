@@ -45,7 +45,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         }
 
         if(!server_state.i_am_leader & reqid != server_state.nextReqid) {
-            server_state.addPendingRequest(request);
+            server_state.addPendingRequest(request, responseObserver);
             return;
         }
 

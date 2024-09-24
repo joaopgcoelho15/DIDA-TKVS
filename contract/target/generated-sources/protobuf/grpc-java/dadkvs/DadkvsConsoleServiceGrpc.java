@@ -76,37 +76,6 @@ public final class DadkvsConsoleServiceGrpc {
     return getSetdebugMethod;
   }
 
-  private static volatile io.grpc.MethodDescriptor<dadkvs.DadkvsConsole.BroadcastRequest,
-      dadkvs.DadkvsConsole.BroadcastReply> getBroadcastSequenceMethod;
-
-  @io.grpc.stub.annotations.RpcMethod(
-      fullMethodName = SERVICE_NAME + '/' + "broadcastSequence",
-      requestType = dadkvs.DadkvsConsole.BroadcastRequest.class,
-      responseType = dadkvs.DadkvsConsole.BroadcastReply.class,
-      methodType = io.grpc.MethodDescriptor.MethodType.UNARY)
-  public static io.grpc.MethodDescriptor<dadkvs.DadkvsConsole.BroadcastRequest,
-      dadkvs.DadkvsConsole.BroadcastReply> getBroadcastSequenceMethod() {
-    io.grpc.MethodDescriptor<dadkvs.DadkvsConsole.BroadcastRequest, dadkvs.DadkvsConsole.BroadcastReply> getBroadcastSequenceMethod;
-    if ((getBroadcastSequenceMethod = DadkvsConsoleServiceGrpc.getBroadcastSequenceMethod) == null) {
-      synchronized (DadkvsConsoleServiceGrpc.class) {
-        if ((getBroadcastSequenceMethod = DadkvsConsoleServiceGrpc.getBroadcastSequenceMethod) == null) {
-          DadkvsConsoleServiceGrpc.getBroadcastSequenceMethod = getBroadcastSequenceMethod =
-              io.grpc.MethodDescriptor.<dadkvs.DadkvsConsole.BroadcastRequest, dadkvs.DadkvsConsole.BroadcastReply>newBuilder()
-              .setType(io.grpc.MethodDescriptor.MethodType.UNARY)
-              .setFullMethodName(generateFullMethodName(SERVICE_NAME, "broadcastSequence"))
-              .setSampledToLocalTracing(true)
-              .setRequestMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  dadkvs.DadkvsConsole.BroadcastRequest.getDefaultInstance()))
-              .setResponseMarshaller(io.grpc.protobuf.ProtoUtils.marshaller(
-                  dadkvs.DadkvsConsole.BroadcastReply.getDefaultInstance()))
-              .setSchemaDescriptor(new DadkvsConsoleServiceMethodDescriptorSupplier("broadcastSequence"))
-              .build();
-        }
-      }
-    }
-    return getBroadcastSequenceMethod;
-  }
-
   /**
    * Creates a new async stub that supports all call types for the service
    */
@@ -169,13 +138,6 @@ public final class DadkvsConsoleServiceGrpc {
       io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getSetdebugMethod(), responseObserver);
     }
 
-    /**
-     */
-    public void broadcastSequence(dadkvs.DadkvsConsole.BroadcastRequest request,
-        io.grpc.stub.StreamObserver<dadkvs.DadkvsConsole.BroadcastReply> responseObserver) {
-      io.grpc.stub.ServerCalls.asyncUnimplementedUnaryCall(getBroadcastSequenceMethod(), responseObserver);
-    }
-
     @java.lang.Override public final io.grpc.ServerServiceDefinition bindService() {
       return io.grpc.ServerServiceDefinition.builder(getServiceDescriptor())
           .addMethod(
@@ -192,13 +154,6 @@ public final class DadkvsConsoleServiceGrpc {
                 dadkvs.DadkvsConsole.SetDebugRequest,
                 dadkvs.DadkvsConsole.SetDebugReply>(
                   this, METHODID_SETDEBUG)))
-          .addMethod(
-            getBroadcastSequenceMethod(),
-            io.grpc.stub.ServerCalls.asyncUnaryCall(
-              new MethodHandlers<
-                dadkvs.DadkvsConsole.BroadcastRequest,
-                dadkvs.DadkvsConsole.BroadcastReply>(
-                  this, METHODID_BROADCAST_SEQUENCE)))
           .build();
     }
   }
@@ -232,14 +187,6 @@ public final class DadkvsConsoleServiceGrpc {
       io.grpc.stub.ClientCalls.asyncUnaryCall(
           getChannel().newCall(getSetdebugMethod(), getCallOptions()), request, responseObserver);
     }
-
-    /**
-     */
-    public void broadcastSequence(dadkvs.DadkvsConsole.BroadcastRequest request,
-        io.grpc.stub.StreamObserver<dadkvs.DadkvsConsole.BroadcastReply> responseObserver) {
-      io.grpc.stub.ClientCalls.asyncUnaryCall(
-          getChannel().newCall(getBroadcastSequenceMethod(), getCallOptions()), request, responseObserver);
-    }
   }
 
   /**
@@ -268,13 +215,6 @@ public final class DadkvsConsoleServiceGrpc {
     public dadkvs.DadkvsConsole.SetDebugReply setdebug(dadkvs.DadkvsConsole.SetDebugRequest request) {
       return io.grpc.stub.ClientCalls.blockingUnaryCall(
           getChannel(), getSetdebugMethod(), getCallOptions(), request);
-    }
-
-    /**
-     */
-    public dadkvs.DadkvsConsole.BroadcastReply broadcastSequence(dadkvs.DadkvsConsole.BroadcastRequest request) {
-      return io.grpc.stub.ClientCalls.blockingUnaryCall(
-          getChannel(), getBroadcastSequenceMethod(), getCallOptions(), request);
     }
   }
 
@@ -307,19 +247,10 @@ public final class DadkvsConsoleServiceGrpc {
       return io.grpc.stub.ClientCalls.futureUnaryCall(
           getChannel().newCall(getSetdebugMethod(), getCallOptions()), request);
     }
-
-    /**
-     */
-    public com.google.common.util.concurrent.ListenableFuture<dadkvs.DadkvsConsole.BroadcastReply> broadcastSequence(
-        dadkvs.DadkvsConsole.BroadcastRequest request) {
-      return io.grpc.stub.ClientCalls.futureUnaryCall(
-          getChannel().newCall(getBroadcastSequenceMethod(), getCallOptions()), request);
-    }
   }
 
   private static final int METHODID_SETLEADER = 0;
   private static final int METHODID_SETDEBUG = 1;
-  private static final int METHODID_BROADCAST_SEQUENCE = 2;
 
   private static final class MethodHandlers<Req, Resp> implements
       io.grpc.stub.ServerCalls.UnaryMethod<Req, Resp>,
@@ -345,10 +276,6 @@ public final class DadkvsConsoleServiceGrpc {
         case METHODID_SETDEBUG:
           serviceImpl.setdebug((dadkvs.DadkvsConsole.SetDebugRequest) request,
               (io.grpc.stub.StreamObserver<dadkvs.DadkvsConsole.SetDebugReply>) responseObserver);
-          break;
-        case METHODID_BROADCAST_SEQUENCE:
-          serviceImpl.broadcastSequence((dadkvs.DadkvsConsole.BroadcastRequest) request,
-              (io.grpc.stub.StreamObserver<dadkvs.DadkvsConsole.BroadcastReply>) responseObserver);
           break;
         default:
           throw new AssertionError();
@@ -413,7 +340,6 @@ public final class DadkvsConsoleServiceGrpc {
               .setSchemaDescriptor(new DadkvsConsoleServiceFileDescriptorSupplier())
               .addMethod(getSetleaderMethod())
               .addMethod(getSetdebugMethod())
-              .addMethod(getBroadcastSequenceMethod())
               .build();
         }
       }
