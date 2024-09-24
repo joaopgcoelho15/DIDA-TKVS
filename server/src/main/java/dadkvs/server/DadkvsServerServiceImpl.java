@@ -1,5 +1,6 @@
 package dadkvs.server;
 
+import com.google.protobuf.Empty;
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc;
@@ -19,7 +20,7 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
      * @param request
      */
     @Override
-    public void reqidbroadcast(DadkvsServer.ReqIdBroadcast request) {
+    public void reqidbroadcast(DadkvsServer.ReqIdBroadcast request, StreamObserver<Empty> responseObserver) {
         System.out.println("Receiving reqid broadcast:" + request);
 
         int reqid = request.getReqid();
@@ -29,7 +30,7 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
         for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
             if (pendingRequest.getReqid() == reqid) {
                 // process the request
-                StreamObserver<DadkvsMain.CommitReply> responseObserver = server_state.pendingRequests.remove(pendingRequest);
+                StreamObserver<DadkvsMain.CommitReply> clientObserver = server_state.pendingRequests.remove(pendingRequest);
 
                 // for debug purposes
                 System.out.println("Processing pending request:" + pendingRequest);
@@ -46,8 +47,8 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
 
                 // send the response
                 DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder().setReqid(reqid).build();
-                responseObserver.onNext(response);
-                responseObserver.onCompleted();
+                clientObserver.onNext(response);
+                clientObserver.onCompleted();
 
                 return;
             }
