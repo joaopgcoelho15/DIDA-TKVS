@@ -68,7 +68,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                     @Override
                     public void onNext(Empty value) {
                         //Handle response from other servers
-                        System.out.println("Handleing response");
+                        System.out.println("Handling response");
                     }
 
                     @Override
