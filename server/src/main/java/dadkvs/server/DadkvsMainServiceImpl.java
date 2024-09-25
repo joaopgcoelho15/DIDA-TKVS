@@ -4,6 +4,20 @@ package dadkvs.server;
 
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsMainServiceGrpc;
+import dadkvs.DadkvsServer;
+
+import dadkvs.DadkvsConsole;
+import dadkvs.DadkvsConsoleServiceGrpc;
+import dadkvs.DadkvsMain;
+import dadkvs.DadkvsMainServiceGrpc;
+
+import dadkvs.util.GenericResponseCollector;
+import dadkvs.util.CollectorStreamObserver;
+
+import java.util.Scanner;
+
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 
 import io.grpc.stub.StreamObserver;
 
@@ -42,9 +56,30 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         if(server_state.i_am_leader){
             //Fazer o codigo do broadcast para os outros servers
-        }
+            DadkvsServer.ReqIdBroadcast reqidBroadcast = DadkvsServer.ReqIdBroadcast.newBuilder().setReqid(reqid).build();
 
-        if(!server_state.i_am_leader & reqid != server_state.nextReqid) {
+            for (dadkvs.DadkvsMainServiceGrpc.DadkvsMainServiceStub stub : otherServerStubs) {
+                stub.sendReqidBroadcast(reqidBroadcast, new StreamObserver<Empty>(){
+                    @Override
+                    public void onNext(Empty value) {
+                        //Handle response from other servers
+                    }
+
+                    @Override
+                    public void onError(Throwable t){
+                        //Handle error from other servers
+                        System.out.println("Error broadcasting reqid:" + reqid);
+                    }
+
+                    @Override
+                    public void onCompleted(){
+                        //Handle completionfrom other servers
+                    }
+                }
+                );
+            }
+        }
+        else if(reqid != server_state.nextReqid) {
             server_state.addPendingRequest(request, responseObserver);
             return;
         }
@@ -63,14 +98,18 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         TransactionRecord txrecord = new TransactionRecord(key1, version1, key2, version2, writekey, writeval, this.timestamp);
         boolean result = this.server_state.store.commit(txrecord);
 
+        if(result){
+            // for debug purposes
+            System.out.println("Result is ready for request with reqid " + reqid);
 
-        // for debug purposes
-        System.out.println("Result is ready for request with reqid " + reqid);
+            DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder()
+                    .setReqid(reqid).setAck(result).build();
 
-        DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder()
-                .setReqid(reqid).setAck(result).build();
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
+            responseObserver.onNext(response);
+            responseObserver.onCompleted();
+        }
+        else{
+            
+        }
     }
 }

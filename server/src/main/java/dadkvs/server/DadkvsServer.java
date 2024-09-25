@@ -24,6 +24,7 @@ public class DadkvsServer {
 
     public static void main(String[] args) throws Exception {
         final int kvsize = 1000;
+        final int n_servers = 5;
 
         System.out.println(DadkvsServer.class.getSimpleName());
 
