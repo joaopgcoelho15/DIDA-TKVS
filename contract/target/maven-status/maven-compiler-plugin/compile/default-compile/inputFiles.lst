@@ -1,8 +1,8 @@
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\grpc-java\dadkvs\DadkvsServerServiceGrpc.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\java\dadkvs\DadkvsConsole.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\grpc-java\dadkvs\DadkvsMainServiceGrpc.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\grpc-java\dadkvs\DadkvsConsoleServiceGrpc.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\grpc-java\dadkvs\DadkvsPaxosServiceGrpc.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\java\dadkvs\DadkvsMain.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\java\dadkvs\DadkvsServer.java
-C:\Coding\DIDA\DIDA-TKVS\contract\target\generated-sources\protobuf\java\dadkvs\DadkvsPaxos.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsMain.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsMainServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsPaxos.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsPaxosServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsConsoleServiceGrpc.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsServer.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/java/dadkvs/DadkvsConsole.java
+/home/joaor/DAD-PROJ/DIDA-TKVS/contract/target/generated-sources/protobuf/grpc-java/dadkvs/DadkvsServerServiceGrpc.java
