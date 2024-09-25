@@ -63,6 +63,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                     @Override
                     public void onNext(Empty value) {
                         //Handle response from other servers
+                        a
                     }
 
                     @Override
