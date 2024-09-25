@@ -29,14 +29,20 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
 
         //iterate over server_state.pendingRequests and check if there is a request with reqid
 
-        for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
-            if (pendingRequest.getReqid() == reqid) {
-                mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
-                return;
-            }
+        //If this is the first request from the leader, just change the variable
+        if (server_state.nextReqid == -1){
+            server_state.nextReqid = reqid;
         }
-
-        // if the request is not found, add it to the queue
-        this.server_state.idQueue.add(reqid);
+        else{
+            //Check if the request is already stored
+            for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
+                if (pendingRequest.getReqid() == reqid) {
+                    mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
+                    return;
+                }
+            }    
+            // if the request is not found, add it to the queue
+            this.server_state.idQueue.add(reqid);
+        }
     }
 }

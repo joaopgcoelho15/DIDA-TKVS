@@ -5,7 +5,7 @@ package dadkvs.server;
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsMainServiceGrpc;
 import dadkvs.DadkvsServer;
-
+import dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub;
 import dadkvs.DadkvsConsole;
 import dadkvs.DadkvsConsoleServiceGrpc;
 import dadkvs.DadkvsMain;
@@ -14,7 +14,10 @@ import dadkvs.DadkvsMainServiceGrpc;
 import dadkvs.util.GenericResponseCollector;
 import dadkvs.util.CollectorStreamObserver;
 
+import java.util.List;
 import java.util.Scanner;
+
+import com.google.protobuf.Empty;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
@@ -25,10 +28,12 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
     DadkvsServerState server_state;
     int timestamp;
+    List<DadkvsServerServiceStub> stubs;
 
-    public DadkvsMainServiceImpl(DadkvsServerState state) {
+    public DadkvsMainServiceImpl(DadkvsServerState state, List<DadkvsServerServiceStub> stubs) {
         this.server_state = state;
         this.timestamp = 0;
+        this.stubs = stubs;
     }
 
     @Override
@@ -58,26 +63,28 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //Fazer o codigo do broadcast para os outros servers
             DadkvsServer.ReqIdBroadcast reqidBroadcast = DadkvsServer.ReqIdBroadcast.newBuilder().setReqid(reqid).build();
 
-            for (dadkvs.DadkvsMainServiceGrpc.DadkvsMainServiceStub stub : otherServerStubs) {
-                stub.sendReqidBroadcast(reqidBroadcast, new StreamObserver<Empty>(){
+            for (dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub stub : stubs) {
+                stub.reqidbroadcast(reqidBroadcast, new StreamObserver<Empty>() {
                     @Override
                     public void onNext(Empty value) {
                         //Handle response from other servers
-                        a
+                        System.out.println("Handleing response");
                     }
 
                     @Override
                     public void onError(Throwable t){
                         //Handle error from other servers
-                        System.out.println("Error broadcasting reqid:" + reqid);
+                        System.out.println("Error broadcasting reqid:" + reqid + t);
                     }
 
                     @Override
                     public void onCompleted(){
                         //Handle completionfrom other servers
+                        System.out.println("Completed");
                     }
                 }
                 );
+                    
             }
         }
         else if(reqid != server_state.nextReqid) {
@@ -99,18 +106,16 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         TransactionRecord txrecord = new TransactionRecord(key1, version1, key2, version2, writekey, writeval, this.timestamp);
         boolean result = this.server_state.store.commit(txrecord);
 
-        if(result){
-            // for debug purposes
-            System.out.println("Result is ready for request with reqid " + reqid);
+        // for debug purposes
+        System.out.println("Result is ready for request with reqid " + reqid);
 
-            DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder()
-                    .setReqid(reqid).setAck(result).build();
+        DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder()
+                .setReqid(reqid).setAck(result).build();
 
-            responseObserver.onNext(response);
-            responseObserver.onCompleted();
-        }
-        else{
-            
-        }
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+        if(!server_state.idQueue.isEmpty()){
+            server_state.nextReqid = server_state.idQueue.removeFirst();
+        }     
     }
 }

@@ -7,8 +7,8 @@ import io.grpc.Server;
 import io.grpc.ServerBuilder;
 import java.util.ArrayList;
 import java.util.List;
-import dadkvs.DadkvsMainServiceGrpc;
-import dadkvs.DadkvsMainServiceGrpc.DadkvsMainServiceStub;
+import dadkvs.DadkvsServerServiceGrpc;
+import dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub;
 
 
 
@@ -48,15 +48,15 @@ public class DadkvsServer {
 
         port = base_port + my_id;
 
-        List<DadkvsMainServiceStub> stubs = new ArrayList<>();
+        List<DadkvsServerServiceStub> stubs = new ArrayList<>();
         for (int i = 0; i < n_servers; i++) {
             if (i != my_id) {
                 ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", base_port + i).usePlaintext().build();
-                stubs.add(DadkvsMainServiceGrpc.newStub(channel));
+                stubs.add(DadkvsServerServiceGrpc.newStub(channel));
             }
         }
 
-        final BindableService service_impl = new DadkvsMainServiceImpl(server_state);
+        final BindableService service_impl = new DadkvsMainServiceImpl(server_state, stubs);
         final BindableService console_impl = new DadkvsConsoleServiceImpl(server_state);
         final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state);
         final BindableService server_service_impl = new DadkvsServerServiceImpl(server_state, (DadkvsMainServiceImpl) service_impl);
