@@ -9,9 +9,11 @@ import io.grpc.stub.StreamObserver;
 public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServerServiceImplBase {
 
     DadkvsServerState server_state;
+    DadkvsMainServiceImpl mainService;
 
-    public DadkvsServerServiceImpl(DadkvsServerState state) {
+    public DadkvsServerServiceImpl(DadkvsServerState state, DadkvsMainServiceImpl mainService) {
         this.server_state = state;
+        this.mainService = mainService;
     }
 
     /**
@@ -29,27 +31,7 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
 
         for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
             if (pendingRequest.getReqid() == reqid) {
-                // process the request
-                StreamObserver<DadkvsMain.CommitReply> clientObserver = server_state.pendingRequests.remove(pendingRequest);
-
-                // for debug purposes
-                System.out.println("Processing pending request:" + pendingRequest);
-
-                int key1 = pendingRequest.getKey1();
-                int version1 = pendingRequest.getVersion1();
-                int key2 = pendingRequest.getKey2();
-                int version2 = pendingRequest.getVersion2();
-                int writekey = pendingRequest.getWritekey();
-                int writeval = pendingRequest.getWriteval();
-
-                // for debug purposes
-                System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writekey + " writeval " + writeval);
-
-                // send the response
-                DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder().setReqid(reqid).build();
-                clientObserver.onNext(response);
-                clientObserver.onCompleted();
-
+                mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
                 return;
             }
         }

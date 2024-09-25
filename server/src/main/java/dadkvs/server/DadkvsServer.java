@@ -1,11 +1,15 @@
 package dadkvs.server;
 
+import io.grpc.ManagedChannel;
+import io.grpc.ManagedChannelBuilder;
 import io.grpc.BindableService;
 import io.grpc.Server;
 import io.grpc.ServerBuilder;
-
-import dadkvs.DadkvsMain;
+import java.util.ArrayList;
+import java.util.List;
 import dadkvs.DadkvsMainServiceGrpc;
+import dadkvs.DadkvsMainServiceGrpc.DadkvsMainServiceStub;
+
 
 
 public class DadkvsServer {
@@ -16,6 +20,7 @@ public class DadkvsServer {
      * Server host port.
      */
     private static int port;
+    private static final int n_servers = 5;
 
     public static void main(String[] args) throws Exception {
         final int kvsize = 1000;
@@ -42,12 +47,21 @@ public class DadkvsServer {
 
         port = base_port + my_id;
 
+        List<DadkvsMainServiceStub> stubs = new ArrayList<>();
+        for (int i = 0; i < n_servers; i++) {
+            if (i != my_id) {
+                ManagedChannel channel = ManagedChannelBuilder.forAddress("localhost", base_port + i).usePlaintext().build();
+                stubs.add(DadkvsMainServiceGrpc.newStub(channel));
+            }
+        }
+
         final BindableService service_impl = new DadkvsMainServiceImpl(server_state);
         final BindableService console_impl = new DadkvsConsoleServiceImpl(server_state);
         final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state);
+        final BindableService server_service_impl = new DadkvsServerServiceImpl(server_state, (DadkvsMainServiceImpl) service_impl);
 
         // Create a new server to listen on port.
-        Server server = ServerBuilder.forPort(port).addService(service_impl).addService(console_impl).addService(paxos_impl).build();
+        Server server = ServerBuilder.forPort(port).addService(service_impl).addService(console_impl).addService(paxos_impl).addService(server_service_impl).build();
         // Start the server.
         server.start();
         // Server threads are running in the background.
