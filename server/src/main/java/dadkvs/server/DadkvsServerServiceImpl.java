@@ -1,6 +1,5 @@
 package dadkvs.server;
 
-import com.google.protobuf.Empty;
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc;
@@ -22,7 +21,7 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
      * @param request
      */
     @Override
-    public void reqidbroadcast(DadkvsServer.ReqIdBroadcast request, StreamObserver<Empty> responseObserver) {
+    public void reqidbroadcast(DadkvsServer.ReqIdBroadcast request, StreamObserver<DadkvsServer.BroadcastReply> responseObserver) {
         System.out.println("Receiving reqid broadcast:" + request);
 
         int reqid = request.getReqid();
@@ -32,17 +31,30 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
         //If this is the first request from the leader, just change the variable
         if (server_state.nextReqid == -1){
             server_state.nextReqid = reqid;
+            DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
+            if(pendingRequest != null){
+                mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
+            }
         }
-        else{
-            //Check if the request is already stored
-            for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
-                if (pendingRequest.getReqid() == reqid) {
-                    mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
-                    return;
-                }
-            }    
-            // if the request is not found, add it to the queue
-            this.server_state.idQueue.add(reqid);
+        else {
+            server_state.idQueue.add(reqid);
         }
+    
+        boolean result = true;
+        DadkvsServer.BroadcastReply response = DadkvsServer.BroadcastReply.newBuilder()
+                .setAck(result).build();
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
+    }
+
+    public DadkvsMain.CommitRequest searchRequest(int reqid){
+        for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
+            //If the incoming request is stored and 
+            if (pendingRequest.getReqid() == reqid && reqid == server_state.nextReqid) {
+                return pendingRequest;
+            }
+        } 
+        return null;
     }
 }

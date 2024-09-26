@@ -20,7 +20,6 @@ public class DadkvsServer {
      * Server host port.
      */
     private static int port;
-    private static final int n_servers = 5;
 
     public static void main(String[] args) throws Exception {
         final int kvsize = 1000;

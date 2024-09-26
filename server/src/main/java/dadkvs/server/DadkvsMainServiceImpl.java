@@ -6,22 +6,19 @@ import dadkvs.DadkvsMain;
 import dadkvs.DadkvsMainServiceGrpc;
 import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub;
-import dadkvs.DadkvsConsole;
-import dadkvs.DadkvsConsoleServiceGrpc;
-import dadkvs.DadkvsMain;
-import dadkvs.DadkvsMainServiceGrpc;
-
-import dadkvs.util.GenericResponseCollector;
 import dadkvs.util.CollectorStreamObserver;
+import dadkvs.util.GenericResponseCollector;
 
 import java.util.List;
 import java.util.Scanner;
+import java.util.ArrayList;
+import java.util.ListIterator;
 
 import com.google.protobuf.Empty;
 
 import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
-
+import io.grpc.SynchronizationContext;
 import io.grpc.stub.StreamObserver;
 
 public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServiceImplBase {
@@ -62,30 +59,16 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         if(server_state.i_am_leader){
             //Fazer o codigo do broadcast para os outros servers
             DadkvsServer.ReqIdBroadcast reqidBroadcast = DadkvsServer.ReqIdBroadcast.newBuilder().setReqid(reqid).build();
+            ListIterator<dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubIterator = stubs.listIterator();
 
-            for (dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub stub : stubs) {
-                stub.reqidbroadcast(reqidBroadcast, new StreamObserver<Empty>() {
-                    @Override
-                    public void onNext(Empty value) {
-                        //Handle response from other servers
-                        System.out.println("Handling response");
-                    }
+            ArrayList<DadkvsServer.BroadcastReply> broad_responses = new ArrayList<DadkvsServer.BroadcastReply>();
+            GenericResponseCollector<DadkvsServer.BroadcastReply> broad_collector = new GenericResponseCollector<DadkvsServer.BroadcastReply>(broad_responses, 5);
 
-                    @Override
-                    public void onError(Throwable t){
-                        //Handle error from other servers
-                        System.out.println("Error broadcasting reqid:" + reqid + t);
-                    }
-
-                    @Override
-                    public void onCompleted(){
-                        //Handle completionfrom other servers
-                        System.out.println("Completed");
-                    }
-                }
-                );
-                    
+            while (stubIterator.hasNext()) {
+                CollectorStreamObserver<DadkvsServer.BroadcastReply> commit_observer = new CollectorStreamObserver<DadkvsServer.BroadcastReply>(broad_collector);
+                stubIterator.next().reqidbroadcast(reqidBroadcast, commit_observer);                  
             }
+            broad_collector.waitForTarget(5);
         }
         else if(reqid != server_state.nextReqid) {
             server_state.addPendingRequest(request, responseObserver);

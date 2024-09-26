@@ -10,6 +10,10 @@ message ReqIdBroadcast {
   int32 reqid = 1;
 }
 
+message BroadcastReply {
+  bool ack = 1;
+}
+
 service DadkvsServerService {
-  rpc reqidbroadcast (ReqIdBroadcast) returns (google.protobuf.Empty);
+  rpc reqidbroadcast (ReqIdBroadcast) returns (BroadcastReply);
 }
