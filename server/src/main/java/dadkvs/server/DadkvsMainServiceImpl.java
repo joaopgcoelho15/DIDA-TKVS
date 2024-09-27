@@ -10,15 +10,9 @@ import dadkvs.util.CollectorStreamObserver;
 import dadkvs.util.GenericResponseCollector;
 
 import java.util.List;
-import java.util.Scanner;
 import java.util.ArrayList;
 import java.util.ListIterator;
 
-import com.google.protobuf.Empty;
-
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
-import io.grpc.SynchronizationContext;
 import io.grpc.stub.StreamObserver;
 
 public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServiceImplBase {
@@ -65,12 +59,18 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             GenericResponseCollector<DadkvsServer.BroadcastReply> broad_collector = new GenericResponseCollector<DadkvsServer.BroadcastReply>(broad_responses, 5);
 
             while (stubIterator.hasNext()) {
-                CollectorStreamObserver<DadkvsServer.BroadcastReply> commit_observer = new CollectorStreamObserver<DadkvsServer.BroadcastReply>(broad_collector);
-                stubIterator.next().reqidbroadcast(reqidBroadcast, commit_observer);                  
+                CollectorStreamObserver<DadkvsServer.BroadcastReply> broad_observer = new CollectorStreamObserver<DadkvsServer.BroadcastReply>(broad_collector);
+                stubIterator.next().reqidbroadcast(reqidBroadcast, broad_observer);                  
             }
-            broad_collector.waitForTarget(5);
+            broad_collector.waitForTarget(4);
         }
-        else if(reqid != server_state.nextReqid) {
+        //If the queue is empty, store the request and return
+        else if(server_state.idQueue.isEmpty()){
+            server_state.addPendingRequest(request, responseObserver);
+            return;
+        }
+        //If this request is not the next to be processed
+        else if(reqid != server_state.idQueue.peekFirst()) {
             server_state.addPendingRequest(request, responseObserver);
             return;
         }
@@ -98,7 +98,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         responseObserver.onNext(response);
         responseObserver.onCompleted();
         if(!server_state.idQueue.isEmpty()){
-            server_state.nextReqid = server_state.idQueue.removeFirst();
+            server_state.idQueue.removeFirst();
         }     
     }
 }

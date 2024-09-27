@@ -3,10 +3,8 @@ package dadkvs.server;
 import dadkvs.DadkvsMain;
 import io.grpc.stub.StreamObserver;
 
-import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
-import java.util.List;
 
 public class DadkvsServerState {
     boolean i_am_leader;
@@ -14,7 +12,6 @@ public class DadkvsServerState {
     int base_port;
     int my_id;
     int store_size;
-    int nextReqid;
 
     LinkedList<Integer> idQueue;
 
@@ -32,7 +29,6 @@ public class DadkvsServerState {
         i_am_leader = false;
         debug_mode = 0;
         store_size = kv_size;
-        nextReqid = -1;
         store = new KeyValueStore(kv_size);
         main_loop = new MainLoop(this);
         main_loop_worker = new Thread(main_loop);

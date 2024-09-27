@@ -28,9 +28,9 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
 
         //iterate over server_state.pendingRequests and check if there is a request with reqid
 
-        //If this is the first request from the leader, just change the variable
-        if (server_state.nextReqid == -1){
-            server_state.nextReqid = reqid;
+        //If the queue is empty, it means that if I have the request I should do it now
+        if (server_state.idQueue.isEmpty()){
+            server_state.idQueue.add(reqid);
             DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
             if(pendingRequest != null){
                 mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
@@ -51,7 +51,7 @@ public class DadkvsServerServiceImpl extends DadkvsServerServiceGrpc.DadkvsServe
     public DadkvsMain.CommitRequest searchRequest(int reqid){
         for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
             //If the incoming request is stored and 
-            if (pendingRequest.getReqid() == reqid && reqid == server_state.nextReqid) {
+            if (pendingRequest.getReqid() == reqid && reqid == server_state.idQueue.peekFirst()) {
                 return pendingRequest;
             }
         } 
