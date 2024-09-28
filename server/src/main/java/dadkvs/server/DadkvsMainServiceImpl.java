@@ -11,6 +11,7 @@ import dadkvs.util.GenericResponseCollector;
 
 import java.util.List;
 import java.util.ArrayList;
+import java.util.Iterator;
 import java.util.ListIterator;
 
 import io.grpc.stub.StreamObserver;
@@ -52,7 +53,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         if(server_state.i_am_leader){
             //Fazer o codigo do broadcast para os outros servers
-            DadkvsServer.ReqIdBroadcast reqidBroadcast = DadkvsServer.ReqIdBroadcast.newBuilder().setReqid(reqid).build();
+            /*DadkvsServer.ReqIdBroadcast reqidBroadcast = DadkvsServer.ReqIdBroadcast.newBuilder().setReqid(reqid).build();
             ListIterator<dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubIterator = stubs.listIterator();
 
             ArrayList<DadkvsServer.BroadcastReply> broad_responses = new ArrayList<DadkvsServer.BroadcastReply>();
@@ -62,7 +63,51 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 CollectorStreamObserver<DadkvsServer.BroadcastReply> broad_observer = new CollectorStreamObserver<DadkvsServer.BroadcastReply>(broad_collector);
                 stubIterator.next().reqidbroadcast(reqidBroadcast, broad_observer);                  
             }
-            broad_collector.waitForTarget(4);
+            broad_collector.waitForTarget(4);*/
+
+            DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(server_state.paxosStamp).build();
+            ListIterator<dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubIterator = stubs.listIterator();
+
+            ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<DadkvsServer.PhaseOneReply>();
+            GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<DadkvsServer.PhaseOneReply>(promises, 4);
+
+            while (stubIterator.hasNext()) {
+                CollectorStreamObserver<DadkvsServer.PhaseOneReply> broad_observer = new CollectorStreamObserver<DadkvsServer.PhaseOneReply>(promises_collector);
+                stubIterator.next().phaseone(proposeRequest, broad_observer);                  
+            }
+            try {
+                promises_collector.wait(100);
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+            int acceptedPrepares = 0;
+            int acceptedValue = -1;
+            int newValue = -1;
+            
+            if (promises.size() >= 4) {
+                Iterator<DadkvsServer.PhaseOneReply> promise_iterator = promises.iterator();
+                
+                while(promise_iterator.hasNext()){
+                    DadkvsServer.PhaseOneReply promise = promise_iterator.next();
+                    //If the PREPARE was accepted
+                    if(promise.getPhase1Accepted()){
+                        acceptedPrepares++;
+                        acceptedValue = promise.getPhase1Value();
+                        //If there was already a commited value this leader adopts this value
+                        if(acceptedValue != -1){
+                            newValue = acceptedValue;
+                        }
+                    }
+                }
+                //If majority is accepted go to phase 2
+                if(acceptedPrepares > 2){
+                    //Code for phase 2
+                }
+            }
+             else
+                System.out.println("Panic...error commiting");
         }
         //If the queue is empty, store the request and return
         else if(server_state.idQueue.isEmpty()){

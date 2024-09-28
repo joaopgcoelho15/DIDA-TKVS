@@ -12,11 +12,11 @@ public class DadkvsServerState {
     int base_port;
     int my_id;
     int store_size;
+    int paxosStamp;
 
     LinkedList<Integer> idQueue;
 
     HashMap<DadkvsMain.CommitRequest, StreamObserver<DadkvsMain.CommitReply>> pendingRequests;
-
 
     KeyValueStore store;
     MainLoop main_loop;
@@ -35,6 +35,7 @@ public class DadkvsServerState {
         main_loop_worker.start();
         pendingRequests = new HashMap<>();
         idQueue = new LinkedList<>();
+        paxosStamp = my_id;
     }
 
     public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {
