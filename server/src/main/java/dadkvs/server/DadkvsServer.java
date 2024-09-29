@@ -60,6 +60,22 @@ public class DadkvsServer {
         final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state);
         final BindableService server_service_impl = new DadkvsServerServiceImpl(server_state, (DadkvsMainServiceImpl) service_impl);
 
+        int currentConfig = server_state.store.read(0).getValue();
+
+        if(currentConfig == 0 && (my_id == 0 || my_id == 1 || my_id == 2)) {
+            server_state.i_am_leader = true;
+        }
+        else if(currentConfig == 1 && (my_id == 1 || my_id == 2 || my_id == 3)) {
+            server_state.i_am_leader = true;
+        }
+        else if(currentConfig == 2 && (my_id == 2 || my_id == 3 || my_id == 4)) {
+            server_state.i_am_leader = true;
+        }
+        else {
+            server_state.i_am_leader = false;
+        }
+
+
         // Create a new server to listen on port.
         Server server = ServerBuilder.forPort(port).addService(service_impl).addService(console_impl).addService(paxos_impl).addService(server_service_impl).build();
         // Start the server.
