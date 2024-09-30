@@ -55,9 +55,9 @@ public class DadkvsServer {
             }
         }
 
-        final BindableService service_impl = new DadkvsMainServiceImpl(server_state, stubs);
         final BindableService console_impl = new DadkvsConsoleServiceImpl(server_state);
         final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state);
+        final BindableService service_impl = new DadkvsMainServiceImpl(server_state, stubs, (DadkvsPaxosServiceImpl) paxos_impl);
         final BindableService server_service_impl = new DadkvsServerServiceImpl(server_state, (DadkvsMainServiceImpl) service_impl);
 
         int currentConfig = server_state.store.read(0).getValue();

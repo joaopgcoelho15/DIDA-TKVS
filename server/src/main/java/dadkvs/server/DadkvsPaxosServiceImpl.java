@@ -13,6 +13,11 @@ import io.grpc.ManagedChannel;
 import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
+import java.util.ArrayList;
+import java.util.Iterator;
+import java.util.List;
+import java.util.ListIterator;
+
 public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServerServiceImplBase {
 
 
@@ -74,6 +79,50 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         // for debug purposes
         System.out.println("Receive learn request: " + request);
 
+    }
+
+    public void innitPaxos(List<DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs){
+        DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(server_state.paxosStamp).build();
+        ListIterator<DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubIterator = stubs.listIterator();
+
+        ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<DadkvsServer.PhaseOneReply>();
+        GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<DadkvsServer.PhaseOneReply>(promises, 4);
+
+        while (stubIterator.hasNext()) {
+            CollectorStreamObserver<DadkvsServer.PhaseOneReply> broad_observer = new CollectorStreamObserver<DadkvsServer.PhaseOneReply>(promises_collector);
+            stubIterator.next().phaseone(proposeRequest, broad_observer);
+        }
+        try {
+            promises_collector.wait(100);
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+
+        int acceptedPrepares = 0;
+        int acceptedValue = -1;
+        int newValue = -1;
+
+        if (promises.size() >= 5) {
+
+            for (DadkvsServer.PhaseOneReply promise : promises) {
+                //If the PREPARE was accepted
+                if (promise.getPhase1Accepted()) {
+                    acceptedPrepares++;
+                    acceptedValue = promise.getPhase1Value();
+                    //If there was already a commited value this leader adopts this value
+                    if (acceptedValue != -1) {
+                        newValue = acceptedValue;
+                    }
+                }
+            }
+            //If majority is accepted go to phase 2
+            if (acceptedPrepares > 2) {
+                //Code for phase 2
+            }
+        }
+        else
+            System.out.println("Panic...error commiting");
     }
 
 }
