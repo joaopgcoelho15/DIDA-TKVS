@@ -40,21 +40,31 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         int currentStamp = request.getPhase1Timestamp();
 
+        DadkvsServer.PhaseOneReply response;
+
         //If this proposer has an ID higher then any ID I have promised
         if(currentStamp > leaderStamp){
-            leaderStamp = currentStamp;
             //If a value has already been accepted previously
             if(proposedValue >= 0){
                 //Send PROMISE IDp accepted IDa, value
+                response = DadkvsServer.PhaseOneReply.newBuilder()
+                .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp).setPhase1Value(proposedValue).build();
             }
             else{
                 //Send PROMISE IDp
+                response = DadkvsServer.PhaseOneReply.newBuilder()
+                .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).build();
             }
+            leaderStamp = currentStamp;
         }
         else{
             //Ignore the request
+            response = DadkvsServer.PhaseOneReply.newBuilder()
+                .setPhase1Accepted(false).build();
         }
 
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 
     @Override
@@ -64,14 +74,24 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         int currentStamp = request.getPhase2Timestamp();
 
+        DadkvsServer.PhaseTwoReply response;
+
         if(currentStamp > leaderStamp){
             leaderStamp = currentStamp;
             //Reply ACCEPT IDp, value
+            response = DadkvsServer.PhaseTwoReply.newBuilder()
+                .setPhase2Accepted(true).build();
             //Also broadcast to all learners
+
         }
         else{
             //Ignore the request
+            response = DadkvsServer.PhaseTwoReply.newBuilder()
+                .setPhase2Accepted(false).build();
         }
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 
     @Override
@@ -119,10 +139,15 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             //If majority is accepted go to phase 2
             if (acceptedPrepares > 2) {
                 //Code for phase 2
+                proposerPhase2();
             }
         }
         else
             System.out.println("Panic...error commiting");
+    }
+
+    public void proposerPhase2(){
+
     }
 
 }
