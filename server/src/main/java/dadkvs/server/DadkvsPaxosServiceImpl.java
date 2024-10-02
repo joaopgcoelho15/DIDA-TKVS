@@ -5,18 +5,11 @@ package dadkvs.server;
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc;
+import dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub;
 
-import dadkvs.util.GenericResponseCollector;
-import dadkvs.util.CollectorStreamObserver;
-
-import io.grpc.ManagedChannel;
-import io.grpc.ManagedChannelBuilder;
 import io.grpc.stub.StreamObserver;
 
-import java.util.ArrayList;
-import java.util.Iterator;
 import java.util.List;
-import java.util.ListIterator;
 
 public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServerServiceImplBase {
 
@@ -24,12 +17,16 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     DadkvsServerState server_state;
     int leaderStamp;
     int proposedValue;
+    List<DadkvsServerServiceStub> stubs;
+    DadkvsMainServiceImpl mainService;
 
 
-    public DadkvsPaxosServiceImpl(DadkvsServerState state) {
+    public DadkvsPaxosServiceImpl(DadkvsServerState state, List<DadkvsServerServiceStub> stubs, DadkvsMainServiceImpl mainService) {
         this.server_state = state;
         leaderStamp = -1;
         proposedValue = -1;
+        this.stubs = stubs;
+        this.mainService = mainService;
     }
 
 
@@ -99,55 +96,47 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         // for debug purposes
         System.out.println("Receive learn request: " + request);
 
-    }
+        int reqid = request.getLearnvalue();
+        int timestamp = request.getLearntimestamp();
+        boolean result = false;
 
-    public void innitPaxos(List<DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs){
-        DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(server_state.paxosStamp).build();
-        ListIterator<DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubIterator = stubs.listIterator();
-
-        ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<DadkvsServer.PhaseOneReply>();
-        GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<DadkvsServer.PhaseOneReply>(promises, 4);
-
-        while (stubIterator.hasNext()) {
-            CollectorStreamObserver<DadkvsServer.PhaseOneReply> broad_observer = new CollectorStreamObserver<DadkvsServer.PhaseOneReply>(promises_collector);
-            stubIterator.next().phaseone(proposeRequest, broad_observer);
-        }
-        try {
-            promises_collector.wait(100);
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-
-        int acceptedPrepares = 0;
-        int acceptedValue = -1;
-        int newValue = -1;
-
-        if (promises.size() >= 5) {
-
-            for (DadkvsServer.PhaseOneReply promise : promises) {
-                //If the PREPARE was accepted
-                if (promise.getPhase1Accepted()) {
-                    acceptedPrepares++;
-                    acceptedValue = promise.getPhase1Value();
-                    //If there was already a commited value this leader adopts this value
-                    if (acceptedValue != -1) {
-                        newValue = acceptedValue;
-                    }
+        if(timestamp > leaderStamp){
+            leaderStamp = timestamp;
+            proposedValue = reqid;
+        
+            //If the queue is empty, it means that if I have the request I should do it now
+            if (server_state.idQueue.isEmpty()){
+                server_state.idQueue.add(reqid);
+                DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
+                if(pendingRequest != null){
+                    mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
                 }
             }
-            //If majority is accepted go to phase 2
-            if (acceptedPrepares > 2) {
-                //Code for phase 2
-                proposerPhase2();
+            else {
+                server_state.idQueue.add(reqid);
             }
+            result = true;
         }
-        else
-            System.out.println("Panic...error commiting");
+        else{
+            //Ignore the request
+            result = false;
+        }
+    
+        DadkvsServer.LearnReply response = DadkvsServer.LearnReply.newBuilder()
+                .setLearnaccepted(result).build();
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 
-    public void proposerPhase2(){
-
+    public DadkvsMain.CommitRequest searchRequest(int reqid){
+        for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
+            //If the incoming request is stored and 
+            if (pendingRequest.getReqid() == reqid && reqid == server_state.idQueue.peekFirst()) {
+                return pendingRequest;
+            }
+        } 
+        return null;
     }
 
 }

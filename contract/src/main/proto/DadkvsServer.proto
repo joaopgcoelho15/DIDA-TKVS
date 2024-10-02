@@ -36,9 +36,9 @@ message PhaseTwoRequest {
 }
 
 message PhaseTwoReply {
-  int32 phase2config   = 1;
-  int32 phase2index    = 2;
-  bool  phase2accepted = 3;
+  int32 phase2config    = 1;
+  int32 phase2index     = 2;
+  bool  phase2accepted  = 4;
 }
 
 message LearnRequest {

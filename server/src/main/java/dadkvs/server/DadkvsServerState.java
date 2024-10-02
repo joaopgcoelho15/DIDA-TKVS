@@ -8,11 +8,14 @@ import java.util.LinkedList;
 
 public class DadkvsServerState {
     boolean i_am_leader;
+    boolean paxosRunning;
     int debug_mode;
     int base_port;
     int my_id;
     int store_size;
     int paxosStamp;
+    int finalPaxosValue;
+    int currentConfig;
 
     LinkedList<Integer> idQueue;
 

@@ -56,19 +56,19 @@ public class DadkvsServer {
         }
 
         final BindableService console_impl = new DadkvsConsoleServiceImpl(server_state);
-        final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state);
-        final BindableService service_impl = new DadkvsMainServiceImpl(server_state, stubs, (DadkvsPaxosServiceImpl) paxos_impl);
+        final BindableService service_impl = new DadkvsMainServiceImpl(server_state, stubs);
+        final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state, stubs, (DadkvsMainServiceImpl)service_impl);
         final BindableService server_service_impl = new DadkvsServerServiceImpl(server_state, (DadkvsMainServiceImpl) service_impl);
 
-        int currentConfig = server_state.store.read(0).getValue();
+        server_state.currentConfig = server_state.store.read(0).getValue();
 
-        if(currentConfig == 0 && (my_id == 0 || my_id == 1 || my_id == 2)) {
+        if(server_state.currentConfig == 0 && (my_id == 0 || my_id == 1 || my_id == 2)) {
             server_state.i_am_leader = true;
         }
-        else if(currentConfig == 1 && (my_id == 1 || my_id == 2 || my_id == 3)) {
+        else if(server_state.currentConfig == 1 && (my_id == 1 || my_id == 2 || my_id == 3)) {
             server_state.i_am_leader = true;
         }
-        else if(currentConfig == 2 && (my_id == 2 || my_id == 3 || my_id == 4)) {
+        else if(server_state.currentConfig == 2 && (my_id == 2 || my_id == 3 || my_id == 4)) {
             server_state.i_am_leader = true;
         }
         else {
