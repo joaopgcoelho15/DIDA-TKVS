@@ -1,10 +1,12 @@
 package dadkvs.server;
 
-import dadkvs.DadkvsMain;
-import io.grpc.stub.StreamObserver;
-
+import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.LinkedList;
+import java.util.List;
+
+import dadkvs.DadkvsMain;
+import io.grpc.stub.StreamObserver;
 
 public class DadkvsServerState {
     boolean i_am_leader;
@@ -14,10 +16,11 @@ public class DadkvsServerState {
     int my_id;
     int store_size;
     int paxosStamp;
-    int finalPaxosValue;
+    ArrayList<Integer> finalPaxosValue;
     int currentConfig;
 
     LinkedList<Integer> idQueue;
+    List<Integer> onlyLearners;
 
     HashMap<DadkvsMain.CommitRequest, StreamObserver<DadkvsMain.CommitReply>> pendingRequests;
 
@@ -39,6 +42,9 @@ public class DadkvsServerState {
         pendingRequests = new HashMap<>();
         idQueue = new LinkedList<>();
         paxosStamp = my_id;
+        onlyLearners = new ArrayList<>();
+        finalPaxosValue = new ArrayList<>(1000);
+        finalPaxosValue.addAll(java.util.Collections.nCopies(1000, -1));
     }
 
     public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {
