@@ -9,7 +9,6 @@ import java.util.List;
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc;
-import dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub;
 import dadkvs.util.CollectorStreamObserver;
 import dadkvs.util.GenericResponseCollector;
 import io.grpc.stub.StreamObserver;
@@ -23,10 +22,10 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     List<Integer> proposedValue;
     int nServers;
 
-    HashMap<Integer, DadkvsServerServiceStub> stubs;
+    HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
     DadkvsMainServiceImpl mainService;
 
-    public DadkvsPaxosServiceImpl(DadkvsServerState state, HashMap<Integer, DadkvsServerServiceStub> stubs, DadkvsMainServiceImpl mainService) {
+    public DadkvsPaxosServiceImpl(DadkvsServerState state, HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs, DadkvsMainServiceImpl mainService) {
         this.server_state = state;
         leaderStamp_read = new ArrayList<>(1000);
         leaderStamp_write = new ArrayList<>(1000);
@@ -72,6 +71,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         }
 
         responseObserver.onNext(response);
+        System.out.println("Sending phase1 response: " + response);
         responseObserver.onCompleted();
     }
 
@@ -163,9 +163,9 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         ArrayList<DadkvsServer.LearnReply> learnRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.LearnReply> learn_collector = new GenericResponseCollector<>(learnRequests, 4);
 
-        for (int i = 0; i < (nServers-1); i++ ) {
+        for (int i = 0; i < nServers; i++ ) {
             //Send the consensus value to all the learners
-            if(server_state.onlyLearners.contains(i)){
+            if(i == server_state.my_id){
                 continue;
             }
             CollectorStreamObserver<DadkvsServer.LearnReply> learn_observer = new CollectorStreamObserver<>(learn_collector);

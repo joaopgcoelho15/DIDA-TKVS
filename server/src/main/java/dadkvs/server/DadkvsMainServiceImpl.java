@@ -17,11 +17,11 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
     DadkvsServerState server_state;
     int timestamp;
-    HashMap<Integer, DadkvsServerServiceStub> stubs;
+    HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
     int nAcceptors;
     int paxosRun;
 
-    public DadkvsMainServiceImpl(DadkvsServerState state, HashMap<Integer, DadkvsServerServiceStub> stubs) {
+    public DadkvsMainServiceImpl(DadkvsServerState state, HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs) {
         this.server_state = state;
         this.timestamp = 0;
         this.stubs = stubs;
@@ -100,22 +100,25 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<>(promises, 2);
 
-        for (int i = 0; i < nAcceptors; i++ ) {
+        for (int i = 0; i < 5; i++ ) {
             //Send the PROPOSE message to all the acceptors
             if(server_state.onlyLearners.contains(i) || i == server_state.my_id){
                 continue;
             }
             CollectorStreamObserver<DadkvsServer.PhaseOneReply> p1_observer = new CollectorStreamObserver<>(promises_collector);
+            System.out.println(stubs.get(i));
             stubs.get(i).phaseone(proposeRequest, p1_observer);
         }
         promises_collector.waitForTarget(2);
+
+        System.out.println("Stopped waiting for promises");
 
         int acceptedPrepares = 0;
         int acceptedValue = -1;
         int newValue = -1;
         int highestID = -1;
 
-        if (promises.size() > 2) {
+        if (promises.size() >= 2) {
 
             for (DadkvsServer.PhaseOneReply promise : promises) {
                 //If the PREPARE was accepted
@@ -154,7 +157,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseTwoReply> acceptRequests_collector = new GenericResponseCollector<>(acceptRequests, 4);
 
-        for (int i = 0; i < nAcceptors; i++ ) {
+        for (int i = 0; i < 5; i++ ) {
             //Send the ACCEPT-REQUEST message to all the acceptors
             if(server_state.onlyLearners.contains(i) || i == server_state.my_id){
                 continue;
@@ -166,7 +169,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         int acceptedPrepares = 0;
 
-        if (acceptRequests.size() > 2) {
+        if (acceptRequests.size() >= 2) {
 
             for (DadkvsServer.PhaseTwoReply acceptReq : acceptRequests) {
                 //If the REQUEST-ACCEPT was accepted
