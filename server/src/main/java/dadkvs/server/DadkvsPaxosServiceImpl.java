@@ -21,6 +21,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     List<Integer> leaderStamp_read;
     List<Integer> leaderStamp_write;
     List<Integer> proposedValue;
+    List<Boolean> alreadyCommited;
     int nServers;
 
     HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
@@ -34,6 +35,8 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         leaderStamp_write.addAll(Collections.nCopies(1000, -1));
         proposedValue = new ArrayList<>(1000);
         proposedValue.addAll(Collections.nCopies(1000, -1));
+        alreadyCommited = new ArrayList<>(1000);
+        alreadyCommited.addAll(Collections.nCopies(1000, false));
         nServers = 5;
         this.stubs = stubs;
         this.mainService = mainService;
@@ -126,21 +129,30 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             System.out.println("Learned value: " + reqid);
             leaderStamp_write.set(paxosRun, timestamp);
             proposedValue.set(paxosRun, reqid);
-        
+            
             //If the queue is empty, it means that if I have the request I should do it now
             if (server_state.idQueue.isEmpty()) {
+                System.out.println("Queue is empty----------");
                 server_state.idQueue.add(reqid);
                 server_state.just_commit = true;
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
                 if (pendingRequest != null) {
                     mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
                 }
+                server_state.just_commit = false;
             } 
             else {
-                server_state.idQueue.add(reqid);
+                System.out.println("Queue is not empty ----------");
+                //Just to be sure we dont add it to the queue multiple times
+                if(!server_state.idQueue.contains(reqid)){
+                    server_state.idQueue.add(reqid);
+                }
             }
-            result = true;
-        } else {
+
+            alreadyCommited.set(paxosRun, true); 
+            result = true;           
+        } 
+        else {
             //Ignore the request
             result = false;
         }
@@ -153,13 +165,10 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     }
 
     public DadkvsMain.CommitRequest searchRequest(int reqId) {
+        System.out.println("request in searchRequest: " + server_state.pendingRequests.keySet());
         for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
             //If the incoming request is stored and 
-            if (
-                    pendingRequest.getReqid() == reqId &&
-                            server_state.idQueue.peekFirst() != null &&
-                            reqId == server_state.idQueue.peekFirst()
-            ) {
+            if (pendingRequest.getReqid() == reqId && reqId == server_state.idQueue.peekFirst()) {
                 return pendingRequest;
             }
         }

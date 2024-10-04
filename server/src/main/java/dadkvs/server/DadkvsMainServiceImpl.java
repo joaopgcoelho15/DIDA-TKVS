@@ -56,7 +56,10 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         int reqid = request.getReqid();
 
+        System.out.println("just_commit: " + server_state.just_commit);
+
         if(server_state.i_am_leader && !server_state.just_commit){
+            server_state.addPendingRequest(request, responseObserver);
             innitPaxos(stubs, reqid);
             server_state.just_commit = false;
             return;
@@ -95,9 +98,13 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+
+        System.out.println("Queue before commit: " + server_state.idQueue); 
+        
         if(!server_state.idQueue.isEmpty()){
             server_state.idQueue.removeFirst();
-        }     
+        }
+        System.out.println("Queue after commit: " + server_state.idQueue);   
     }
 
     public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid){
@@ -184,7 +191,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If majority is accepted a new consensus is reached
             if (acceptedPrepares >= 2) {
                 System.out.println("Consensus reached");
-                server_state.finalPaxosValue.add(paxosRun, value);
+                server_state.finalPaxosValue.set(paxosRun, value);
                 paxosRun++;
             }
         }
