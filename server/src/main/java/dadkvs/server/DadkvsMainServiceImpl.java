@@ -58,7 +58,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         System.out.println("just_commit: " + server_state.just_commit);
 
-        if(server_state.i_am_leader && !server_state.just_commit){
+        if (server_state.i_am_leader && !server_state.just_commit) {
             server_state.addPendingRequest(request, responseObserver);
             innitPaxos(stubs, reqid);
             server_state.just_commit = false;
@@ -66,12 +66,12 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         }
 
         //If the queue is empty, store the request and return
-        else if(server_state.idQueue.isEmpty()){
+        else if (server_state.idQueue.isEmpty()) {
             server_state.addPendingRequest(request, responseObserver);
             return;
         }
         //If this request is not the next to be processed
-        else if(reqid != server_state.idQueue.peekFirst()) {
+        else if (reqid != server_state.idQueue.peekFirst()) {
             server_state.addPendingRequest(request, responseObserver);
             return;
         }
@@ -99,23 +99,23 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         responseObserver.onNext(response);
         responseObserver.onCompleted();
 
-        System.out.println("Queue before commit: " + server_state.idQueue); 
-        
-        if(!server_state.idQueue.isEmpty()){
+        System.out.println("Queue before commit: " + server_state.idQueue);
+
+        if (!server_state.idQueue.isEmpty()) {
             server_state.idQueue.removeFirst();
         }
-        System.out.println("Queue after commit: " + server_state.idQueue);   
+        System.out.println("Queue after commit: " + server_state.idQueue);
     }
 
-    public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid){
+    public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid) {
         DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(myStamp.get(paxosRun)).setPhase1Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<>(promises, 2);
 
-        for (int i = 0; i < 5; i++ ) {
+        for (int i = 0; i < 5; i++) {
             //Send the PROPOSE message to all the acceptors
-            if(server_state.onlyLearners.contains(i) || i == server_state.my_id){
+            if (server_state.onlyLearners.contains(i) || i == server_state.my_id) {
                 continue;
             }
             CollectorStreamObserver<DadkvsServer.PhaseOneReply> p1_observer = new CollectorStreamObserver<>(promises_collector);
@@ -145,32 +145,30 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             }
             //If majority is accepted go to phase 2
             if (acceptedPrepares > 0) {
-                if(newValue != -1){
-                    proposerPhase2(newValue);  
-                }
-                else{
+                if (newValue != -1) {
+                    proposerPhase2(newValue);
+                } else {
                     proposerPhase2(reqid);
                 }
             }
             //If the prepare request was not accepted, try again with a new timestamp
-            else{
+            else {
                 myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
                 innitPaxos(stubs, reqid);
             }
-        }
-        else
+        } else
             System.out.println("Panic...error preparing");
     }
 
-    public void proposerPhase2(int value){
+    public void proposerPhase2(int value) {
         DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseTwoReply> acceptRequests_collector = new GenericResponseCollector<>(acceptRequests, 4);
 
-        for (int i = 0; i < 5; i++ ) {
+        for (int i = 0; i < 5; i++) {
             //Send the ACCEPT-REQUEST message to all the acceptors
-            if(server_state.onlyLearners.contains(i) || i == server_state.my_id){
+            if (server_state.onlyLearners.contains(i) || i == server_state.my_id) {
                 continue;
             }
             CollectorStreamObserver<DadkvsServer.PhaseTwoReply> p2_observer = new CollectorStreamObserver<>(acceptRequests_collector);
@@ -194,8 +192,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 server_state.finalPaxosValue.set(paxosRun, value);
                 paxosRun++;
             }
-        }
-        else
+        } else
             System.out.println("Panic...error commiting");
     }
 }

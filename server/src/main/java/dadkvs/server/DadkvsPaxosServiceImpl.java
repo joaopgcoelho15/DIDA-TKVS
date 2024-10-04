@@ -56,21 +56,19 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         DadkvsServer.PhaseOneReply response;
 
         //If this proposer has an ID higher then any ID I have promised
-        if(currentStamp > leaderStamp_read.get(paxosRun)){
+        if (currentStamp > leaderStamp_read.get(paxosRun)) {
             //If a value has already been accepted previously
-            if(proposedValue.get(paxosRun) >= 0){
+            if (proposedValue.get(paxosRun) >= 0) {
                 //Send PROMISE IDp accepted IDa, value
                 response = DadkvsServer.PhaseOneReply.newBuilder()
-                .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(proposedValue.get(paxosRun)).setPhase1Index(paxosRun).build();
-            }
-            else{
+                        .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(proposedValue.get(paxosRun)).setPhase1Index(paxosRun).build();
+            } else {
                 //Send PROMISE IDp
                 response = DadkvsServer.PhaseOneReply.newBuilder()
-                .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).setPhase1Index(paxosRun).build();
+                        .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).setPhase1Index(paxosRun).build();
             }
             leaderStamp_read.add(paxosRun, currentStamp);
-        }
-        else{
+        } else {
             //Ignore the request
             response = DadkvsServer.PhaseOneReply.newBuilder()
                     .setPhase1Accepted(false).build();
@@ -93,19 +91,18 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         DadkvsServer.PhaseTwoReply response;
 
-        if(currentStamp > leaderStamp_write.get(paxosRun)){
+        if (currentStamp > leaderStamp_write.get(paxosRun)) {
             leaderStamp_write.set(paxosRun, currentStamp);
             //Store the agreed value
             System.out.println("Accepting value: " + paxosRun + " " + value);
             proposedValue.add(paxosRun, value);
-            System.out.println("Accepted value: " + proposedValue.get(paxosRun) + " " + proposedValue.get(paxosRun+1));
+            System.out.println("Accepted value: " + proposedValue.get(paxosRun) + " " + proposedValue.get(paxosRun + 1));
             //Reply ACCEPT IDp, value
             response = DadkvsServer.PhaseTwoReply.newBuilder()
-                .setPhase2Accepted(true).setPhase2Index(paxosRun).build();
+                    .setPhase2Accepted(true).setPhase2Index(paxosRun).build();
             //Also broadcast to all onlyLearners
             broadcastToLearners(value, currentStamp, paxosRun);
-        }
-        else{
+        } else {
             //Ignore the request
             response = DadkvsServer.PhaseTwoReply.newBuilder()
                     .setPhase2Accepted(false).build();
@@ -125,11 +122,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int paxosRun = request.getLearnindex();
         boolean result;
 
-        if(timestamp >= leaderStamp_write.get(paxosRun)){
+        if (timestamp >= leaderStamp_write.get(paxosRun)) {
             System.out.println("Learned value: " + reqid);
             leaderStamp_write.set(paxosRun, timestamp);
             proposedValue.set(paxosRun, reqid);
-            
+
             //If the queue is empty, it means that if I have the request I should do it now
             if (server_state.idQueue.isEmpty()) {
                 System.out.println("Queue is empty----------");
@@ -140,19 +137,17 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                     mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
                 }
                 server_state.just_commit = false;
-            } 
-            else {
+            } else {
                 System.out.println("Queue is not empty ----------");
                 //Just to be sure we dont add it to the queue multiple times
-                if(!server_state.idQueue.contains(reqid)){
+                if (!server_state.idQueue.contains(reqid)) {
                     server_state.idQueue.add(reqid);
                 }
             }
 
-            alreadyCommited.set(paxosRun, true); 
-            result = true;           
-        } 
-        else {
+            alreadyCommited.set(paxosRun, true);
+            result = true;
+        } else {
             //Ignore the request
             result = false;
         }
@@ -184,16 +179,14 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         Context ctx = Context.current().fork();
 
         ctx.run(() -> {
-            for (int i = 0; i < nServers; i++ ) {
+            for (int i = 0; i < nServers; i++) {
                 //Send the consensus value to all the learners
-                if(i == server_state.my_id){
+                if (i == server_state.my_id) {
                     continue;
                 }
                 CollectorStreamObserver<DadkvsServer.LearnReply> learn_observer = new CollectorStreamObserver<>(learn_collector);
                 stubs.get(i).learn(learnRequest, learn_observer);
             }
         });
-        
     }
-
 }
