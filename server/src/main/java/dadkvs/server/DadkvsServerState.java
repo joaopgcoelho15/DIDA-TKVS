@@ -10,7 +10,7 @@ import io.grpc.stub.StreamObserver;
 
 public class DadkvsServerState {
     boolean i_am_leader;
-    boolean paxosRunning;
+    boolean just_commit;
     int debug_mode;
     int base_port;
     int my_id;
@@ -33,6 +33,7 @@ public class DadkvsServerState {
         base_port = port;
         my_id = myself;
         i_am_leader = false;
+        just_commit = false;
         debug_mode = 0;
         store_size = kv_size;
         store = new KeyValueStore(kv_size);

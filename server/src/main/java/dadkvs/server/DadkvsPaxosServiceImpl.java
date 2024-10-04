@@ -43,10 +43,12 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     @Override
     public void phaseone(DadkvsServer.PhaseOneRequest request, StreamObserver<DadkvsServer.PhaseOneReply> responseObserver) {
         // for debug purposes
-        System.out.println("Receive phase1 request: " + request);
+        System.out.println("Receiving phase1 request: " + request);
 
         int currentStamp = request.getPhase1Timestamp();
         int paxosRun = request.getPhase1Index();
+
+        System.out.println("Paxos Run:" + paxosRun);
 
         DadkvsServer.PhaseOneReply response;
 
@@ -63,7 +65,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                 response = DadkvsServer.PhaseOneReply.newBuilder()
                 .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).setPhase1Index(paxosRun).build();
             }
-            leaderStamp_read.add(currentStamp);
+            leaderStamp_read.add(paxosRun, currentStamp);
         }
         else{
             //Ignore the request
@@ -79,18 +81,21 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     @Override
     public void phasetwo(DadkvsServer.PhaseTwoRequest request, StreamObserver<DadkvsServer.PhaseTwoReply> responseObserver) {
         // for debug purposes
-        System.out.println("Receive phase two request: " + request);
+        System.out.println("Receiving phase two request: " + request);
 
         int currentStamp = request.getPhase2Timestamp();
         int value = request.getPhase2Value();
         int paxosRun = request.getPhase2Index();
+        System.out.println("Paxos Run:" + paxosRun);
 
         DadkvsServer.PhaseTwoReply response;
 
         if(currentStamp > leaderStamp_write.get(paxosRun)){
-            leaderStamp_write.add(paxosRun, currentStamp);
-            //Store the agreed value 
+            leaderStamp_write.set(paxosRun, currentStamp);
+            //Store the agreed value
+            System.out.println("Accepting value: " + paxosRun + " " + value);
             proposedValue.add(paxosRun, value);
+            System.out.println("Accepted value: " + proposedValue.get(paxosRun) + " " + proposedValue.get(paxosRun+1));
             //Reply ACCEPT IDp, value
             response = DadkvsServer.PhaseTwoReply.newBuilder()
                 .setPhase2Accepted(true).setPhase2Index(paxosRun).build();
@@ -117,18 +122,21 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int paxosRun = request.getLearnindex();
         boolean result;
 
-        if(timestamp > leaderStamp_write.get(paxosRun)){
-            leaderStamp_write.add(paxosRun, timestamp);
-            proposedValue.add(paxosRun, reqid);
+        if(timestamp >= leaderStamp_write.get(paxosRun)){
+            System.out.println("Learned value: " + reqid);
+            leaderStamp_write.set(paxosRun, timestamp);
+            proposedValue.set(paxosRun, reqid);
         
             //If the queue is empty, it means that if I have the request I should do it now
             if (server_state.idQueue.isEmpty()) {
                 server_state.idQueue.add(reqid);
+                server_state.just_commit = true;
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
                 if (pendingRequest != null) {
                     mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
                 }
-            } else {
+            } 
+            else {
                 server_state.idQueue.add(reqid);
             }
             result = true;
