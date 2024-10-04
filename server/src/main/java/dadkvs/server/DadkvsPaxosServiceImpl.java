@@ -11,6 +11,7 @@ import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc;
 import dadkvs.util.CollectorStreamObserver;
 import dadkvs.util.GenericResponseCollector;
+import io.grpc.Context;
 import io.grpc.stub.StreamObserver;
 
 public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServerServiceImplBase {
@@ -163,14 +164,19 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         ArrayList<DadkvsServer.LearnReply> learnRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.LearnReply> learn_collector = new GenericResponseCollector<>(learnRequests, 4);
 
-        for (int i = 0; i < nServers; i++ ) {
-            //Send the consensus value to all the learners
-            if(i == server_state.my_id){
-                continue;
+        Context ctx = Context.current().fork();
+
+        ctx.run(() -> {
+            for (int i = 0; i < nServers; i++ ) {
+                //Send the consensus value to all the learners
+                if(i == server_state.my_id){
+                    continue;
+                }
+                CollectorStreamObserver<DadkvsServer.LearnReply> learn_observer = new CollectorStreamObserver<>(learn_collector);
+                stubs.get(i).learn(learnRequest, learn_observer);
             }
-            CollectorStreamObserver<DadkvsServer.LearnReply> learn_observer = new CollectorStreamObserver<>(learn_collector);
-            stubs.get(i).learn(learnRequest, learn_observer);
-        }
+        });
+        
     }
 
 }
