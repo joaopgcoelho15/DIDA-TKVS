@@ -9,9 +9,9 @@ import java.util.List;
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsServer;
 import dadkvs.DadkvsServerServiceGrpc;
-import dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub;
 import dadkvs.util.CollectorStreamObserver;
 import dadkvs.util.GenericResponseCollector;
+import io.grpc.Context;
 import io.grpc.stub.StreamObserver;
 
 public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServerServiceImplBase {
@@ -23,10 +23,10 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     List<Integer> proposedValue;
     int nServers;
 
-    HashMap<Integer, DadkvsServerServiceStub> stubs;
+    HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
     DadkvsMainServiceImpl mainService;
 
-    public DadkvsPaxosServiceImpl(DadkvsServerState state, HashMap<Integer, DadkvsServerServiceStub> stubs, DadkvsMainServiceImpl mainService) {
+    public DadkvsPaxosServiceImpl(DadkvsServerState state, HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs, DadkvsMainServiceImpl mainService) {
         this.server_state = state;
         leaderStamp_read = new ArrayList<>(1000);
         leaderStamp_write = new ArrayList<>(1000);
@@ -43,10 +43,12 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     @Override
     public void phaseone(DadkvsServer.PhaseOneRequest request, StreamObserver<DadkvsServer.PhaseOneReply> responseObserver) {
         // for debug purposes
-        System.out.println("Receive phase1 request: " + request);
+        System.out.println("Receiving phase1 request: " + request);
 
         int currentStamp = request.getPhase1Timestamp();
         int paxosRun = request.getPhase1Index();
+
+        System.out.println("Paxos Run:" + paxosRun);
 
         DadkvsServer.PhaseOneReply response;
 
@@ -63,7 +65,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                 response = DadkvsServer.PhaseOneReply.newBuilder()
                 .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).setPhase1Index(paxosRun).build();
             }
-            leaderStamp_read.add(currentStamp);
+            leaderStamp_read.add(paxosRun, currentStamp);
         }
         else{
             //Ignore the request
@@ -72,24 +74,28 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         }
 
         responseObserver.onNext(response);
+        System.out.println("Sending phase1 response: " + response);
         responseObserver.onCompleted();
     }
 
     @Override
     public void phasetwo(DadkvsServer.PhaseTwoRequest request, StreamObserver<DadkvsServer.PhaseTwoReply> responseObserver) {
         // for debug purposes
-        System.out.println("Receive phase two request: " + request);
+        System.out.println("Receiving phase two request: " + request);
 
         int currentStamp = request.getPhase2Timestamp();
         int value = request.getPhase2Value();
         int paxosRun = request.getPhase2Index();
+        System.out.println("Paxos Run:" + paxosRun);
 
         DadkvsServer.PhaseTwoReply response;
 
         if(currentStamp > leaderStamp_write.get(paxosRun)){
-            leaderStamp_write.add(paxosRun, currentStamp);
-            //Store the agreed value 
+            leaderStamp_write.set(paxosRun, currentStamp);
+            //Store the agreed value
+            System.out.println("Accepting value: " + paxosRun + " " + value);
             proposedValue.add(paxosRun, value);
+            System.out.println("Accepted value: " + proposedValue.get(paxosRun) + " " + proposedValue.get(paxosRun+1));
             //Reply ACCEPT IDp, value
             response = DadkvsServer.PhaseTwoReply.newBuilder()
                 .setPhase2Accepted(true).setPhase2Index(paxosRun).build();
@@ -116,18 +122,21 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int paxosRun = request.getLearnindex();
         boolean result;
 
-        if(timestamp > leaderStamp_write.get(paxosRun)){
-            leaderStamp_write.add(paxosRun, timestamp);
-            proposedValue.add(paxosRun, reqid);
+        if(timestamp >= leaderStamp_write.get(paxosRun)){
+            System.out.println("Learned value: " + reqid);
+            leaderStamp_write.set(paxosRun, timestamp);
+            proposedValue.set(paxosRun, reqid);
         
             //If the queue is empty, it means that if I have the request I should do it now
             if (server_state.idQueue.isEmpty()) {
                 server_state.idQueue.add(reqid);
+                server_state.just_commit = true;
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
                 if (pendingRequest != null) {
                     mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
                 }
-            } else {
+            } 
+            else {
                 server_state.idQueue.add(reqid);
             }
             result = true;
@@ -163,14 +172,19 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         ArrayList<DadkvsServer.LearnReply> learnRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.LearnReply> learn_collector = new GenericResponseCollector<>(learnRequests, 4);
 
-        for (int i = 0; i < (nServers-1); i++ ) {
-            //Send the consensus value to all the learners
-            if(server_state.onlyLearners.contains(i)){
-                continue;
+        Context ctx = Context.current().fork();
+
+        ctx.run(() -> {
+            for (int i = 0; i < nServers; i++ ) {
+                //Send the consensus value to all the learners
+                if(i == server_state.my_id){
+                    continue;
+                }
+                CollectorStreamObserver<DadkvsServer.LearnReply> learn_observer = new CollectorStreamObserver<>(learn_collector);
+                stubs.get(i).learn(learnRequest, learn_observer);
             }
-            CollectorStreamObserver<DadkvsServer.LearnReply> learn_observer = new CollectorStreamObserver<>(learn_collector);
-            stubs.get(i).learn(learnRequest, learn_observer);
-        }
+        });
+        
     }
 
 }

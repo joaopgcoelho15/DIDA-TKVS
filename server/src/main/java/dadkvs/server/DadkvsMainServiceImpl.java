@@ -4,6 +4,7 @@ package dadkvs.server;
 
 import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsMainServiceGrpc;
@@ -17,16 +18,19 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
     DadkvsServerState server_state;
     int timestamp;
-    HashMap<Integer, DadkvsServerServiceStub> stubs;
+    HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
     int nAcceptors;
     int paxosRun;
+    List<Integer> myStamp;
 
-    public DadkvsMainServiceImpl(DadkvsServerState state, HashMap<Integer, DadkvsServerServiceStub> stubs) {
+    public DadkvsMainServiceImpl(DadkvsServerState state, HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs) {
         this.server_state = state;
         this.timestamp = 0;
         this.stubs = stubs;
         nAcceptors = 2;
-        paxosRun = 0;
+        paxosRun = 1;
+        myStamp = new ArrayList<>(1000);
+        myStamp.addAll(java.util.Collections.nCopies(1000, server_state.my_id));
     }
 
     @Override
@@ -52,8 +56,10 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         int reqid = request.getReqid();
 
-        if(server_state.i_am_leader){
+        if(server_state.i_am_leader && !server_state.just_commit){
             innitPaxos(stubs, reqid);
+            server_state.just_commit = false;
+            return;
         }
 
         //If the queue is empty, store the request and return
@@ -95,17 +101,18 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     }
 
     public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid){
-        DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(server_state.paxosStamp).setPhase1Index(paxosRun).build();
+        DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(myStamp.get(paxosRun)).setPhase1Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<>(promises, 2);
 
-        for (int i = 0; i < nAcceptors; i++ ) {
+        for (int i = 0; i < 5; i++ ) {
             //Send the PROPOSE message to all the acceptors
             if(server_state.onlyLearners.contains(i) || i == server_state.my_id){
                 continue;
             }
             CollectorStreamObserver<DadkvsServer.PhaseOneReply> p1_observer = new CollectorStreamObserver<>(promises_collector);
+            System.out.println(stubs.get(i));
             stubs.get(i).phaseone(proposeRequest, p1_observer);
         }
         promises_collector.waitForTarget(2);
@@ -115,7 +122,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         int newValue = -1;
         int highestID = -1;
 
-        if (promises.size() > 2) {
+        if (promises.size() >= 2) {
 
             for (DadkvsServer.PhaseOneReply promise : promises) {
                 //If the PREPARE was accepted
@@ -132,15 +139,15 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If majority is accepted go to phase 2
             if (acceptedPrepares > 0) {
                 if(newValue != -1){
-                    proposerPhase2(reqid);  
+                    proposerPhase2(newValue);  
                 }
                 else{
-                    proposerPhase2(newValue);
+                    proposerPhase2(reqid);
                 }
             }
             //If the prepare request was not accepted, try again with a new timestamp
             else{
-                server_state.paxosStamp += 3;
+                myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
                 innitPaxos(stubs, reqid);
             }
         }
@@ -149,12 +156,12 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     }
 
     public void proposerPhase2(int value){
-        DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(server_state.paxosStamp).setPhase2Value(value).setPhase2Index(paxosRun).build();
+        DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseTwoReply> acceptRequests_collector = new GenericResponseCollector<>(acceptRequests, 4);
 
-        for (int i = 0; i < nAcceptors; i++ ) {
+        for (int i = 0; i < 5; i++ ) {
             //Send the ACCEPT-REQUEST message to all the acceptors
             if(server_state.onlyLearners.contains(i) || i == server_state.my_id){
                 continue;
@@ -166,7 +173,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         int acceptedPrepares = 0;
 
-        if (acceptRequests.size() > 2) {
+        if (acceptRequests.size() >= 2) {
 
             for (DadkvsServer.PhaseTwoReply acceptReq : acceptRequests) {
                 //If the REQUEST-ACCEPT was accepted
@@ -175,7 +182,8 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 }
             }
             //If majority is accepted a new consensus is reached
-            if (acceptedPrepares > 2) {
+            if (acceptedPrepares >= 2) {
+                System.out.println("Consensus reached");
                 server_state.finalPaxosValue.add(paxosRun, value);
                 paxosRun++;
             }
