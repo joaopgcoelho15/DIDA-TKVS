@@ -19,7 +19,6 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     DadkvsServerState server_state;
     int timestamp;
     HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
-    int nAcceptors;
     int paxosRun;
     List<Integer> myStamp;
 
@@ -27,7 +26,6 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         this.server_state = state;
         this.timestamp = 0;
         this.stubs = stubs;
-        nAcceptors = 2;
         paxosRun = 1;
         myStamp = new ArrayList<>(1000);
         myStamp.addAll(java.util.Collections.nCopies(1000, server_state.my_id));
@@ -56,8 +54,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         int reqid = request.getReqid();
 
-        System.out.println("just_commit: " + server_state.just_commit);
-
+        //This if is for when the leader receives a broadcasted learn
         if (server_state.i_am_leader && !server_state.just_commit) {
             server_state.addPendingRequest(request, responseObserver);
             innitPaxos(stubs, reqid);
@@ -154,6 +151,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If the prepare request was not accepted, try again with a new timestamp
             else {
                 myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
+                System.out.println("Prepare not accepted, trying again with new timestamp");
                 innitPaxos(stubs, reqid);
             }
         } else
@@ -189,8 +187,11 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If majority is accepted a new consensus is reached
             if (acceptedPrepares >= 2) {
                 System.out.println("Consensus reached");
-                server_state.finalPaxosValue.set(paxosRun, value);
                 paxosRun++;
+            } else {
+                myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
+                System.out.println("REQUEST-ACCEPT not accepted, trying again with new timestamp\n");
+                proposerPhase2(value);
             }
         } else
             System.out.println("Panic...error commiting");

@@ -16,8 +16,8 @@ public class DadkvsServerState {
     int my_id;
     int store_size;
     int paxosStamp;
-    ArrayList<Integer> finalPaxosValue;
     int currentConfig;
+    int currentPaxosRun;
 
     LinkedList<Integer> idQueue;
     List<Integer> onlyLearners;
@@ -35,6 +35,7 @@ public class DadkvsServerState {
         i_am_leader = false;
         just_commit = false;
         debug_mode = 0;
+        currentPaxosRun = 1;
         store_size = kv_size;
         store = new KeyValueStore(kv_size);
         main_loop = new MainLoop(this);
@@ -44,8 +45,6 @@ public class DadkvsServerState {
         idQueue = new LinkedList<>();
         paxosStamp = my_id;
         onlyLearners = new ArrayList<>();
-        finalPaxosValue = new ArrayList<>(1000);
-        finalPaxosValue.addAll(java.util.Collections.nCopies(1000, -1));
     }
 
     public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {
