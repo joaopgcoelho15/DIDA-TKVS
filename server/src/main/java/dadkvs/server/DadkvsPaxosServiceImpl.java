@@ -20,7 +20,6 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     DadkvsServerState server_state;
     List<Integer> leaderStamp_read;
     List<Integer> leaderStamp_write;
-    List<Integer> proposedValue;
     List<Boolean> alreadyCommited;
     int nServers;
 
@@ -33,8 +32,6 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         leaderStamp_write = new ArrayList<>(1000);
         leaderStamp_read.addAll(Collections.nCopies(1000, -1));
         leaderStamp_write.addAll(Collections.nCopies(1000, -1));
-        proposedValue = new ArrayList<>(1000);
-        proposedValue.addAll(Collections.nCopies(1000, -1));
         alreadyCommited = new ArrayList<>(1000);
         alreadyCommited.addAll(Collections.nCopies(1000, false));
         nServers = 5;
@@ -57,7 +54,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         //If this proposer has an ID higher then any ID I have promised
         if (currentStamp > leaderStamp_read.get(paxosRun) && currentStamp > leaderStamp_write.get(paxosRun)) {
             //If a value has already been accepted previously
-            if (proposedValue.get(paxosRun) >= 0) {
+            if (server_state.proposedValue.get(paxosRun) >= 0) {
                 //Send PROMISE IDp accepted IDa, value
                 response = DadkvsServer.PhaseOneReply.newBuilder()
                         .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(proposedValue.get(paxosRun)).setPhase1Index(paxosRun).build();
@@ -92,7 +89,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         if (currentStamp > leaderStamp_write.get(paxosRun) && currentStamp > leaderStamp_read.get(paxosRun)) {
             leaderStamp_write.set(paxosRun, currentStamp);
             //Store the agreed value
-            proposedValue.set(paxosRun, value);
+            server_state.proposedValue.set(paxosRun, value);
 
             //Reply ACCEPT IDp, value
             response = DadkvsServer.PhaseTwoReply.newBuilder()
@@ -121,7 +118,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         if (timestamp >= leaderStamp_write.get(paxosRun)) {
             leaderStamp_write.set(paxosRun, timestamp);
-            proposedValue.set(paxosRun, reqid);
+            server_state.proposedValue.set(paxosRun, reqid);
 
             //If the queue is empty, it means that if I have the request I should do it now
             if (server_state.idQueue.isEmpty()) {
@@ -181,5 +178,22 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                 stubs.get(i).learn(learnRequest, learn_observer);
             }
         });
+
+        /*learn_collector.waitForTarget(4);
+
+        int acceptedLearns = 0;
+
+        if (learnRequests.size() >= 4){
+            for (DadkvsServer.LearnReply acceptLearn : learnRequests) {
+                //If the REQUEST-ACCEPT was accepted
+                if (acceptLearn.getLearnaccepted()) {
+                    acceptedLearns++;
+                }
+            }
+
+            if(acceptedLearns >= 3){
+
+            }
+        }*/
     }
 }

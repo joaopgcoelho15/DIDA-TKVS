@@ -56,9 +56,19 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         //This if is for when the leader receives a broadcasted learn
         if (server_state.i_am_leader && !server_state.just_commit) {
-            server_state.addPendingRequest(request, responseObserver);
-            innitPaxos(stubs, reqid);
-            server_state.just_commit = false;
+
+            //There is already a value commited to this paxosRun
+            if(server_state.proposedValue.get(paxosRun) != -1){
+                paxosRun++;
+                server_state.addPendingRequest(request, responseObserver);
+                innitPaxos(stubs, reqid);
+                server_state.just_commit = false;
+            }
+            else{
+                server_state.addPendingRequest(request, responseObserver);
+                innitPaxos(stubs, reqid);
+                server_state.just_commit = false;
+            }
             return;
         }
 
@@ -143,9 +153,9 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If majority is accepted go to phase 2
             if (acceptedPrepares > 0) {
                 if (newValue != -1) {
-                    proposerPhase2(newValue);
+                    proposerPhase2(newValue, stubs);
                 } else {
-                    proposerPhase2(reqid);
+                    proposerPhase2(reqid, stubs);
                 }
             }
             //If the prepare request was not accepted, try again with a new timestamp
@@ -158,7 +168,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             System.out.println("Panic...error preparing");
     }
 
-    public void proposerPhase2(int value) {
+    public void proposerPhase2(int value, HashMap<Integer, DadkvsServerServiceStub> stubs) {
         DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();
@@ -191,7 +201,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             } else {
                 myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
                 System.out.println("REQUEST-ACCEPT not accepted, trying again with new timestamp\n");
-                proposerPhase2(value);
+                innitPaxos(stubs, value);
             }
         } else
             System.out.println("Panic...error commiting");

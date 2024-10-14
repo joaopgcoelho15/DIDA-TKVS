@@ -1,6 +1,7 @@
 package dadkvs.server;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashMap;
 import java.util.LinkedList;
 import java.util.List;
@@ -21,6 +22,7 @@ public class DadkvsServerState {
 
     LinkedList<Integer> idQueue;
     List<Integer> onlyLearners;
+    List<Integer> proposedValue;
 
     HashMap<DadkvsMain.CommitRequest, StreamObserver<DadkvsMain.CommitReply>> pendingRequests;
 
@@ -45,6 +47,8 @@ public class DadkvsServerState {
         idQueue = new LinkedList<>();
         paxosStamp = my_id;
         onlyLearners = new ArrayList<>();
+        proposedValue = new ArrayList<>(1000);
+        proposedValue.addAll(Collections.nCopies(1000, -1));
     }
 
     public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {
