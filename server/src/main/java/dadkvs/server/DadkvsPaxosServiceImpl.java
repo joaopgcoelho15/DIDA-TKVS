@@ -21,6 +21,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     List<Integer> leaderStamp_read;
     List<Integer> leaderStamp_write;
     List<Boolean> alreadyCommited;
+    HashMap<Integer, Integer> learnedValues;
     int nServers;
 
     HashMap<Integer, dadkvs.DadkvsServerServiceGrpc.DadkvsServerServiceStub> stubs;
@@ -34,6 +35,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         leaderStamp_write.addAll(Collections.nCopies(1000, -1));
         alreadyCommited = new ArrayList<>(1000);
         alreadyCommited.addAll(Collections.nCopies(1000, false));
+        learnedValues = new HashMap<>();
         nServers = 5;
         this.stubs = stubs;
         this.mainService = mainService;
@@ -57,7 +59,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             if (server_state.proposedValue.get(paxosRun) >= 0) {
                 //Send PROMISE IDp accepted IDa, value
                 response = DadkvsServer.PhaseOneReply.newBuilder()
-                        .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(proposedValue.get(paxosRun)).setPhase1Index(paxosRun).build();
+                        .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(server_state.proposedValue.get(paxosRun)).setPhase1Index(paxosRun).build();
             } else {
                 //Send PROMISE IDp
                 response = DadkvsServer.PhaseOneReply.newBuilder()
@@ -120,22 +122,32 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             leaderStamp_write.set(paxosRun, timestamp);
             server_state.proposedValue.set(paxosRun, reqid);
 
-            //If the queue is empty, it means that if I have the request I should do it now
-            if (server_state.idQueue.isEmpty()) {
-                server_state.idQueue.add(reqid);
-                server_state.just_commit = true;
-                DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
-                if (pendingRequest != null) {
-                    mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
-                }
-                server_state.just_commit = false;
-            } else {
-                //Just to be sure we dont add it to the queue multiple times
-                if (!server_state.idQueue.contains(reqid)) {
-                    server_state.idQueue.add(reqid);
-                }
+            //If I have never received this value, store it and set the counter to 1
+            if(!learnedValues.containsKey(reqid)){
+                learnedValues.put(reqid, 1);
             }
-
+            else{
+                learnedValues.replace(reqid, learnedValues.get(reqid)+1);
+            }
+            
+            //If a consensus has been reached we can commit the value
+            if(learnedValues.get(reqid) == 3){
+                //If the queue is empty, it means that if I have the request I should do it now
+                if (server_state.idQueue.isEmpty()) {
+                    server_state.idQueue.add(reqid);
+                    server_state.just_commit = true;
+                    DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
+                    if (pendingRequest != null) {
+                        mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
+                    }
+                    server_state.just_commit = false;
+                } else {
+                    //Just to be sure we dont add it to the queue multiple times
+                    if (!server_state.idQueue.contains(reqid)) {
+                        server_state.idQueue.add(reqid);
+                    }
+                }               
+            }
             alreadyCommited.set(paxosRun, true);
             result = true;
         } else {

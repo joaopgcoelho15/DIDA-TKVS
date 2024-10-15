@@ -56,10 +56,9 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         //This if is for when the leader receives a broadcasted learn
         if (server_state.i_am_leader && !server_state.just_commit) {
-
             //There is already a value commited to this paxosRun
             if(server_state.proposedValue.get(paxosRun) != -1){
-                paxosRun++;
+                paxosRun += nextPaxosRun();
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
                 server_state.just_commit = false;
@@ -82,6 +81,8 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             server_state.addPendingRequest(request, responseObserver);
             return;
         }
+
+        System.out.println("debug");
 
         int key1 = request.getKey1();
         int version1 = request.getVersion1();
@@ -154,6 +155,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             if (acceptedPrepares > 0) {
                 if (newValue != -1) {
                     proposerPhase2(newValue, stubs);
+                    innitPaxos(stubs, reqid);
                 } else {
                     proposerPhase2(reqid, stubs);
                 }
@@ -205,5 +207,15 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             }
         } else
             System.out.println("Panic...error commiting");
+    }
+
+    public int nextPaxosRun(){
+        int i=paxosRun;
+
+        while(server_state.proposedValue.get(i) != -1){
+            i++;
+        }
+
+        return i;
     }
 }
