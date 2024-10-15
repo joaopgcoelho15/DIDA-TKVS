@@ -58,15 +58,18 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         if (server_state.i_am_leader && !server_state.just_commit) {
             //There is already a value commited to this paxosRun
             if(server_state.proposedValue.get(paxosRun) != -1){
+                System.out.println("1");
                 paxosRun += nextPaxosRun();
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
                 server_state.just_commit = false;
             }
             else{
+                System.out.println("2");
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
                 server_state.just_commit = false;
+
             }
             return;
         }
@@ -154,9 +157,11 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If majority is accepted go to phase 2
             if (acceptedPrepares > 0) {
                 if (newValue != -1) {
+                    System.out.println("Adopting value " + newValue);
                     proposerPhase2(newValue, stubs);
                     innitPaxos(stubs, reqid);
                 } else {
+                    System.out.println("No value to adopt, proposing new value");
                     proposerPhase2(reqid, stubs);
                 }
             }
@@ -171,6 +176,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     }
 
     public void proposerPhase2(int value, HashMap<Integer, DadkvsServerServiceStub> stubs) {
+        System.out.println("Starting phase 2");
         DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();

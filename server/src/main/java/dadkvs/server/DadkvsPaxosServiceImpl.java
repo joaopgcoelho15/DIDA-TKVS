@@ -88,7 +88,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         DadkvsServer.PhaseTwoReply response;
 
-        if (currentStamp > leaderStamp_write.get(paxosRun) && currentStamp > leaderStamp_read.get(paxosRun)) {
+        System.out.println("Current stamp: " + currentStamp);
+        System.out.println("Leader stamp write: " + leaderStamp_write.get(paxosRun));
+        System.out.println("Leader stamp read: " + leaderStamp_read.get(paxosRun));
+        if (currentStamp > leaderStamp_write.get(paxosRun) && currentStamp >= leaderStamp_read.get(paxosRun)) {
+            System.out.println("Accepting phase two request");
             leaderStamp_write.set(paxosRun, currentStamp);
             //Store the agreed value
             server_state.proposedValue.set(paxosRun, value);
@@ -100,6 +104,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             broadcastToLearners(value, currentStamp, paxosRun);
         } else {
             //Ignore the request
+            System.out.println("Ignoring phase two request");
             response = DadkvsServer.PhaseTwoReply.newBuilder()
                     .setPhase2Accepted(false).build();
         }
@@ -131,7 +136,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             }
             
             //If a consensus has been reached we can commit the value
-            if(learnedValues.get(reqid) == 3){
+            if(learnedValues.get(reqid) == 2){
                 //If the queue is empty, it means that if I have the request I should do it now
                 if (server_state.idQueue.isEmpty()) {
                     server_state.idQueue.add(reqid);
