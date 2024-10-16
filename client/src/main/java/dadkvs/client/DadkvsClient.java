@@ -43,7 +43,7 @@ public class DadkvsClient {
         interactive_mode = false;
         key_range = 5;
         sleep_range = 5;
-        loop_size = 1;
+        loop_size = 10;
         n_servers = 5;
         client_id = 1;
         port = 8080;

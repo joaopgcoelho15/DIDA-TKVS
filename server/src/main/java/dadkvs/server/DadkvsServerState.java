@@ -11,7 +11,6 @@ import io.grpc.stub.StreamObserver;
 
 public class DadkvsServerState {
     boolean i_am_leader;
-    boolean just_commit;
     int debug_mode;
     int base_port;
     int my_id;
@@ -23,6 +22,7 @@ public class DadkvsServerState {
     LinkedList<Integer> idQueue;
     List<Integer> onlyLearners;
     List<Integer> proposedValue;
+    List<Integer> commitedValues;
 
     HashMap<DadkvsMain.CommitRequest, StreamObserver<DadkvsMain.CommitReply>> pendingRequests;
 
@@ -35,7 +35,6 @@ public class DadkvsServerState {
         base_port = port;
         my_id = myself;
         i_am_leader = false;
-        just_commit = false;
         debug_mode = 0;
         currentPaxosRun = 1;
         store_size = kv_size;
@@ -49,6 +48,8 @@ public class DadkvsServerState {
         onlyLearners = new ArrayList<>();
         proposedValue = new ArrayList<>(1000);
         proposedValue.addAll(Collections.nCopies(1000, -1));
+        commitedValues = new ArrayList<>(1000);
+        commitedValues.addAll(Collections.nCopies(1000, -1));
     }
 
     public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {

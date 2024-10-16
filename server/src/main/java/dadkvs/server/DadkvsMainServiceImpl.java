@@ -54,68 +54,29 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         int reqid = request.getReqid();
 
-        //This if is for when the leader receives a broadcasted learn
-        if (server_state.i_am_leader && !server_state.just_commit) {
+        System.out.println("idQueue: " + server_state.idQueue);
+
+        if(!server_state.idQueue.isEmpty()){
+            if(reqid == server_state.idQueue.peekFirst()){
+                commitValue(request, responseObserver, reqid);
+                server_state.idQueue.removeFirst();
+            } 
+        }
+        else if (server_state.i_am_leader) {
             //There is already a value commited to this paxosRun
             if(server_state.proposedValue.get(paxosRun) != -1){
-                System.out.println("1");
                 paxosRun += nextPaxosRun();
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
-                server_state.just_commit = false;
             }
             else{
-                System.out.println("2");
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
-                server_state.just_commit = false;
-
             }
-            return;
-        }
-
-        //If the queue is empty, store the request and return
-        else if (server_state.idQueue.isEmpty()) {
+        }      
+        else {
             server_state.addPendingRequest(request, responseObserver);
-            return;
         }
-        //If this request is not the next to be processed
-        else if (reqid != server_state.idQueue.peekFirst()) {
-            server_state.addPendingRequest(request, responseObserver);
-            return;
-        }
-
-        System.out.println("debug");
-
-        int key1 = request.getKey1();
-        int version1 = request.getVersion1();
-        int key2 = request.getKey2();
-        int version2 = request.getVersion2();
-        int writekey = request.getWritekey();
-        int writeval = request.getWriteval();
-
-        // for debug purposes
-        System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writekey + " writeval " + writeval);
-
-        this.timestamp++;
-        TransactionRecord txrecord = new TransactionRecord(key1, version1, key2, version2, writekey, writeval, this.timestamp);
-        boolean result = this.server_state.store.commit(txrecord);
-
-        // for debug purposes
-        System.out.println("Result is ready for request with reqid " + reqid);
-
-        DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder()
-                .setReqid(reqid).setAck(result).build();
-
-        responseObserver.onNext(response);
-        responseObserver.onCompleted();
-
-        System.out.println("Queue before commit: " + server_state.idQueue);
-
-        if (!server_state.idQueue.isEmpty()) {
-            server_state.idQueue.removeFirst();
-        }
-        System.out.println("Queue after commit: " + server_state.idQueue);
     }
 
     public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid) {
@@ -205,6 +166,19 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             //If majority is accepted a new consensus is reached
             if (acceptedPrepares >= 2) {
                 System.out.println("Consensus reached");
+
+                if (!server_state.idQueue.contains(value)) {
+                    System.out.println("Adding to queue 171----------------------------------" + value);
+                    server_state.idQueue.add(value);
+                }
+
+                DadkvsMain.CommitRequest pendingRequest = searchRequest(value);
+                if (pendingRequest != null && value == server_state.idQueue.peekFirst()) {
+                    commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
+                    server_state.idQueue.removeFirst();
+                    server_state.commitedValues.add(value);
+                }
+
                 paxosRun++;
             } else {
                 myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
@@ -223,5 +197,43 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         }
 
         return i;
+    }
+
+    public DadkvsMain.CommitRequest searchRequest(int reqId) {
+        if(server_state.pendingRequests.isEmpty()){
+            return null;
+        }
+        for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
+            //If the incoming request is stored and 
+            if (pendingRequest.getReqid() == reqId && reqId == server_state.idQueue.peekFirst()) {
+                return pendingRequest;
+            }
+        }
+        return null;
+    }
+
+    public void commitValue(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver, int reqid){
+        int key1 = request.getKey1();
+        int version1 = request.getVersion1();
+        int key2 = request.getKey2();
+        int version2 = request.getVersion2();
+        int writekey = request.getWritekey();
+        int writeval = request.getWriteval();
+
+        // for debug purposes
+        System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writekey + " writeval " + writeval);
+
+        this.timestamp++;
+        TransactionRecord txrecord = new TransactionRecord(key1, version1, key2, version2, writekey, writeval, this.timestamp);
+        boolean result = this.server_state.store.commit(txrecord);
+
+        // for debug purposes
+        System.out.println("Result is ready for request with reqid " + reqid);
+
+        DadkvsMain.CommitReply response = DadkvsMain.CommitReply.newBuilder()
+                .setReqid(reqid).setAck(result).build();
+
+        responseObserver.onNext(response);
+        responseObserver.onCompleted();
     }
 }

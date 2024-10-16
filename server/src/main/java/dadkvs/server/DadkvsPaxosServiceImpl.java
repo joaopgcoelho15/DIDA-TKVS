@@ -139,16 +139,21 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             if(learnedValues.get(reqid) == 2){
                 //If the queue is empty, it means that if I have the request I should do it now
                 if (server_state.idQueue.isEmpty()) {
-                    server_state.idQueue.add(reqid);
-                    server_state.just_commit = true;
-                    DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
-                    if (pendingRequest != null) {
-                        mainService.committx(pendingRequest, server_state.pendingRequests.remove(pendingRequest));
+                    if (!server_state.idQueue.contains(reqid) && !server_state.commitedValues.contains(reqid)) {
+                        System.out.println("Adding to queue 143----------------------------------" + reqid);
+                        server_state.idQueue.add(reqid);
                     }
-                    server_state.just_commit = false;
+
+                    DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
+                    if (pendingRequest != null && server_state.idQueue.peekFirst() == reqid) {
+                        mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), reqid);
+                        server_state.idQueue.removeFirst();
+                        server_state.commitedValues.add(reqid);
+                    }
                 } else {
                     //Just to be sure we dont add it to the queue multiple times
-                    if (!server_state.idQueue.contains(reqid)) {
+                    if (!server_state.idQueue.contains(reqid) && !server_state.commitedValues.contains(reqid)) {
+                        System.out.println("Adding to queue 155 ----------------------------------" + reqid);
                         server_state.idQueue.add(reqid);
                     }
                 }               
