@@ -101,6 +101,21 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             response = DadkvsServer.PhaseTwoReply.newBuilder()
                     .setPhase2Accepted(true).setPhase2Index(paxosRun).build();
             //Also broadcast to all onlyLearners
+
+            if (server_state.idQueue.isEmpty()) {
+                if (!server_state.idQueue.contains(value) && !server_state.isCommited.get(paxosRun)) {
+                    System.out.println("Adding to queue 143----------------------------------" + value);
+                    server_state.idQueue.add(value);
+                }
+
+                DadkvsMain.CommitRequest pendingRequest = searchRequest(value);
+                if (pendingRequest != null && server_state.idQueue.peekFirst() == value) {
+                    mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
+                    server_state.idQueue.removeFirst();
+                    server_state.isCommited.set(paxosRun, true);
+                }
+            }
+            
             broadcastToLearners(value, currentStamp, paxosRun);
         } else {
             //Ignore the request
@@ -139,7 +154,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             if(learnedValues.get(reqid) == 2){
                 //If the queue is empty, it means that if I have the request I should do it now
                 if (server_state.idQueue.isEmpty()) {
-                    if (!server_state.idQueue.contains(reqid) && !server_state.commitedValues.contains(reqid)) {
+                    if (!server_state.idQueue.contains(reqid) && !server_state.isCommited.get(paxosRun)) {
                         System.out.println("Adding to queue 143----------------------------------" + reqid);
                         server_state.idQueue.add(reqid);
                     }
@@ -148,11 +163,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                     if (pendingRequest != null && server_state.idQueue.peekFirst() == reqid) {
                         mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), reqid);
                         server_state.idQueue.removeFirst();
-                        server_state.commitedValues.add(reqid);
+                        server_state.isCommited.set(paxosRun, true);
                     }
                 } else {
                     //Just to be sure we dont add it to the queue multiple times
-                    if (!server_state.idQueue.contains(reqid) && !server_state.commitedValues.contains(reqid)) {
+                    if (!server_state.idQueue.contains(reqid) && !server_state.isCommited.get(paxosRun)) {
                         System.out.println("Adding to queue 155 ----------------------------------" + reqid);
                         server_state.idQueue.add(reqid);
                     }

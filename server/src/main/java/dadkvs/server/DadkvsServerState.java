@@ -22,7 +22,7 @@ public class DadkvsServerState {
     LinkedList<Integer> idQueue;
     List<Integer> onlyLearners;
     List<Integer> proposedValue;
-    List<Integer> commitedValues;
+    List<Boolean> isCommited;
 
     HashMap<DadkvsMain.CommitRequest, StreamObserver<DadkvsMain.CommitReply>> pendingRequests;
 
@@ -48,8 +48,8 @@ public class DadkvsServerState {
         onlyLearners = new ArrayList<>();
         proposedValue = new ArrayList<>(1000);
         proposedValue.addAll(Collections.nCopies(1000, -1));
-        commitedValues = new ArrayList<>(1000);
-        commitedValues.addAll(Collections.nCopies(1000, -1));
+        isCommited = new ArrayList<>(1000);
+        isCommited.addAll(Collections.nCopies(1000, false));
     }
 
     public void addPendingRequest(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {

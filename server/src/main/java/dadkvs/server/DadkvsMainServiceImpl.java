@@ -56,6 +56,11 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         System.out.println("idQueue: " + server_state.idQueue);
 
+        if(server_state.proposedValue.contains(reqid)){
+            System.out.println("Value already commited");
+            return;
+        }
+
         if(!server_state.idQueue.isEmpty()){
             if(reqid == server_state.idQueue.peekFirst()){
                 commitValue(request, responseObserver, reqid);
@@ -80,6 +85,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     }
 
     public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid) {
+        System.out.println("Paxos Run: " + paxosRun + " Value: " + reqid);
         DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(myStamp.get(paxosRun)).setPhase1Index(paxosRun).build();
 
         ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<>();
@@ -91,7 +97,6 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 continue;
             }
             CollectorStreamObserver<DadkvsServer.PhaseOneReply> p1_observer = new CollectorStreamObserver<>(promises_collector);
-            System.out.println(stubs.get(i));
             stubs.get(i).phaseone(proposeRequest, p1_observer);
         }
         promises_collector.waitForTarget(2);
@@ -120,7 +125,9 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 if (newValue != -1) {
                     System.out.println("Adopting value " + newValue);
                     proposerPhase2(newValue, stubs);
-                    innitPaxos(stubs, reqid);
+                    if(reqid != newValue){
+                        innitPaxos(stubs, reqid);
+                    }
                 } else {
                     System.out.println("No value to adopt, proposing new value");
                     proposerPhase2(reqid, stubs);
@@ -167,7 +174,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             if (acceptedPrepares >= 2) {
                 System.out.println("Consensus reached");
 
-                if (!server_state.idQueue.contains(value)) {
+                if (!server_state.idQueue.contains(value) && !server_state.isCommited.get(paxosRun)) {
                     System.out.println("Adding to queue 171----------------------------------" + value);
                     server_state.idQueue.add(value);
                 }
@@ -176,7 +183,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 if (pendingRequest != null && value == server_state.idQueue.peekFirst()) {
                     commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
                     server_state.idQueue.removeFirst();
-                    server_state.commitedValues.add(value);
+                    server_state.isCommited.set(paxosRun, true);
                 }
 
                 paxosRun++;
