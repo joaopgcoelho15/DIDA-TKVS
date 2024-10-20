@@ -53,8 +53,16 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         System.out.println("Receiving commit request:" + request);
 
         int reqid = request.getReqid();
+        int key = request.getWritekey();
 
-        System.out.println("idQueue: " + server_state.idQueue);
+        if(key == 0){
+            int config = request.getWriteval();
+            reconfig(config);
+            System.out.println("Incoming reconfiguration: From " + (config-1) + " to " + config);
+            commitValue(request, responseObserver, reqid);
+            paxosRun++;
+            return;
+        }
 
         if(server_state.proposedValue.contains(reqid)){
             System.out.println("Value already commited");
@@ -63,18 +71,22 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         if(!server_state.idQueue.isEmpty()){
             if(reqid == server_state.idQueue.peekFirst()){
+                System.out.println("asdas");
                 commitValue(request, responseObserver, reqid);
                 server_state.idQueue.removeFirst();
             } 
         }
         else if (server_state.i_am_leader) {
+            System.out.println("im leader");
             //There is already a value commited to this paxosRun
             if(server_state.proposedValue.get(paxosRun) != -1){
+                System.out.println("Not in the right paxos run");
                 paxosRun += nextPaxosRun();
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
             }
             else{
+                System.out.println("Start paxos normally");
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
             }
@@ -220,6 +232,8 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     }
 
     public void commitValue(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver, int reqid){
+        System.out.println("Commiting request: " + reqid);
+
         int key1 = request.getKey1();
         int version1 = request.getVersion1();
         int key2 = request.getKey2();
@@ -242,5 +256,20 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
+    }
+
+    public void reconfig(int config){
+
+        server_state.currentConfig = config;
+        server_state.onlyLearners.clear();
+
+        switch (config) {
+            case 0 -> server_state.onlyLearners.addAll(List.of(3, 4));
+            case 1 -> server_state.onlyLearners.addAll(List.of(4, 0));
+            case 2 -> server_state.onlyLearners.addAll(List.of(0, 1));
+            default -> {
+            }
+        }
+
     }
 }

@@ -10,7 +10,8 @@ do
 done
 
 # Launch client terminal
-xterm -e "cd client && mvn exec:java; exec bash" &
+xterm -e "cd client && mvn exec:java -Dexec.args='1 -i'; exec bash" &
+xterm -e "cd client && mvn exec:java -Dexec.args='2 -i'; exec bash" &
 
 # Launch consoleClient terminal
 xterm -e "cd consoleClient && mvn exec:java; exec bash" &
