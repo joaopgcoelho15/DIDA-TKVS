@@ -5,6 +5,7 @@ package dadkvs.server;
 import java.util.ArrayList;
 import java.util.HashMap;
 import java.util.List;
+import java.util.Collections;
 
 import dadkvs.DadkvsMain;
 import dadkvs.DadkvsMainServiceGrpc;
@@ -53,40 +54,26 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         System.out.println("Receiving commit request:" + request);
 
         int reqid = request.getReqid();
-        int key = request.getWritekey();
-
-        if(key == 0){
-            int config = request.getWriteval();
-            reconfig(config);
-            System.out.println("Incoming reconfiguration: From " + (config-1) + " to " + config);
-            commitValue(request, responseObserver, reqid);
-            paxosRun++;
-            return;
-        }
 
         if(server_state.proposedValue.contains(reqid)){
-            System.out.println("Value already commited");
+            System.out.println("Value already commited\n");
             return;
         }
 
         if(!server_state.idQueue.isEmpty()){
             if(reqid == server_state.idQueue.peekFirst()){
-                System.out.println("asdas");
                 commitValue(request, responseObserver, reqid);
                 server_state.idQueue.removeFirst();
             } 
         }
         else if (server_state.i_am_leader) {
-            System.out.println("im leader");
             //There is already a value commited to this paxosRun
             if(server_state.proposedValue.get(paxosRun) != -1){
-                System.out.println("Not in the right paxos run");
                 paxosRun += nextPaxosRun();
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
             }
             else{
-                System.out.println("Start paxos normally");
                 server_state.addPendingRequest(request, responseObserver);
                 innitPaxos(stubs, reqid);
             }
@@ -184,18 +171,26 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             }
             //If majority is accepted a new consensus is reached
             if (acceptedPrepares >= 2) {
-                System.out.println("Consensus reached");
+                System.out.println("Consensus reached for run " + paxosRun);
 
                 if (!server_state.idQueue.contains(value) && !server_state.isCommited.get(paxosRun)) {
-                    System.out.println("Adding to queue 171----------------------------------" + value);
-                    server_state.idQueue.add(value);
+                    server_state.idQueue.addLast(value);
                 }
 
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(value);
                 if (pendingRequest != null && value == server_state.idQueue.peekFirst()) {
-                    commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
-                    server_state.idQueue.removeFirst();
-                    server_state.isCommited.set(paxosRun, true);
+                    if(checkPrevRuns(paxosRun)){
+                        server_state.futureValues.put(paxosRun, value);
+                    }
+                    else{
+                        //Commit all the values that reached consesus after but have a lower paxosRun
+                        if(!server_state.futureValues.isEmpty()){
+                            commitOldValues();
+                        }
+                        commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
+                        server_state.idQueue.removeFirst();
+                        server_state.isCommited.set(paxosRun, true);
+                    }
                 }
 
                 paxosRun++;
@@ -241,6 +236,12 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         int writekey = request.getWritekey();
         int writeval = request.getWriteval();
 
+        //If the commit is for the key 0, it means it is a reconfiguration
+        /*if(writekey == 0){
+            reconfig(writeval);
+            System.out.println("Incoming reconfiguration: From " + (writeval-1) + " to " + writeval + "\n");
+        }*/
+
         // for debug purposes
         System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writekey + " writeval " + writeval);
 
@@ -271,5 +272,35 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             }
         }
 
+    }
+
+    public boolean checkPrevRuns(int paxosRun){
+
+        for(int i=1; i<paxosRun; i++){
+            //If we find a run of paxos that is not finished, we return true
+            if(server_state.isCommited.get(i) != true){
+                return true;
+            }
+        }
+        return false;
+    }
+
+    public void commitOldValues(){
+        int value;
+        DadkvsMain.CommitRequest pendingRequest;
+
+        // Get the keys from the map and sort them
+        List<Integer> sortedKeys = new ArrayList<>(server_state.futureValues.keySet());
+        Collections.sort(sortedKeys);
+        
+        for(Integer key: sortedKeys){
+            value = server_state.futureValues.get(key);
+            pendingRequest = searchRequest(value);
+
+            commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
+            server_state.idQueue.remove(value);
+            server_state.isCommited.set(key, true);
+            server_state.futureValues.remove(key);
+        }
     }
 }

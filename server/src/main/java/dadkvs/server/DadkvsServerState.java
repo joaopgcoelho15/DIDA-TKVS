@@ -20,6 +20,7 @@ public class DadkvsServerState {
     int currentPaxosRun;
 
     LinkedList<Integer> idQueue;
+    HashMap<Integer, Integer> futureValues;
     List<Integer> onlyLearners;
     List<Integer> proposedValue;
     List<Boolean> isCommited;
@@ -44,6 +45,7 @@ public class DadkvsServerState {
         main_loop_worker.start();
         pendingRequests = new HashMap<>();
         idQueue = new LinkedList<>();
+        futureValues = new HashMap<>();
         paxosStamp = my_id;
         onlyLearners = new ArrayList<>();
         proposedValue = new ArrayList<>(1000);
