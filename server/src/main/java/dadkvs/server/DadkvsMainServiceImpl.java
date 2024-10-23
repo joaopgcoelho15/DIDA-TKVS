@@ -36,27 +36,13 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     public void read(DadkvsMain.ReadRequest request, StreamObserver<DadkvsMain.ReadReply> responseObserver) {
         // for debug purposes
         System.out.println("Receiving read request:" + request);
-
-        server_state.lock.lock();
-        try {
-            while (server_state.isFrozen) {
-                server_state.freezeCondition.await();
-            }
-            if (server_state.slowMode) {
-                Thread.sleep(server_state.sleepDelay);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            server_state.lock.unlock();
-        }
-
-        int reqid = request.getReqid();
+        WaitForUnfreeze();
+        int reqId = request.getReqid();
         int key = request.getKey();
         VersionedValue vv = this.server_state.store.read(key);
 
         DadkvsMain.ReadReply response = DadkvsMain.ReadReply.newBuilder()
-                .setReqid(reqid).setValue(vv.getValue()).setTimestamp(vv.getVersion()).build();
+                .setReqid(reqId).setValue(vv.getValue()).setTimestamp(vv.getVersion()).build();
 
         responseObserver.onNext(response);
         responseObserver.onCompleted();
@@ -67,46 +53,27 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         // for debug purposes
         System.out.println("Receiving commit request:" + request);
 
-        server_state.lock.lock();
-        try {
-            while (server_state.isFrozen) {
-                server_state.freezeCondition.await();
-            }
-            if (server_state.slowMode) {
-                Thread.sleep(server_state.sleepDelay);
-            }
-        } catch (InterruptedException e) {
-            Thread.currentThread().interrupt();
-        } finally {
-            server_state.lock.unlock();
-        }
-
-        int reqid = request.getReqid();
-
-        if(server_state.proposedValue.contains(reqid)){
+        WaitForUnfreeze();
+        int reqId = request.getReqid();
+        if (server_state.proposedValue.contains(reqId)) {
             System.out.println("Value already commited\n");
             return;
         }
 
-        if(!server_state.idQueue.isEmpty()){
-            if(reqid == server_state.idQueue.peekFirst()){
-                commitValue(request, responseObserver, reqid);
+        if (!server_state.idQueue.isEmpty()) {
+            if (reqId == server_state.idQueue.peekFirst()) {
+                //TODO: O próximo é o 10, mas o 11 pode já estar na fila, logo temos de verificar qual é o currentPaxosRun
+                commitValue(request, responseObserver, reqId);
                 server_state.idQueue.removeFirst();
-            } 
-        }
-        else if (server_state.i_am_leader) {
+            }
+        } else if (server_state.i_am_leader) {
             //There is already a value commited to this paxosRun
-            if(server_state.proposedValue.get(paxosRun) != -1){
+            if (server_state.proposedValue.get(paxosRun) != -1) {
                 paxosRun += nextPaxosRun();
-                server_state.addPendingRequest(request, responseObserver);
-                innitPaxos(stubs, reqid);
             }
-            else{
-                server_state.addPendingRequest(request, responseObserver);
-                innitPaxos(stubs, reqid);
-            }
-        }      
-        else {
+            server_state.addPendingRequest(request, responseObserver);
+            innitPaxos(stubs, reqId);
+        } else {
             server_state.addPendingRequest(request, responseObserver);
         }
     }
@@ -152,7 +119,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 if (newValue != -1) {
                     System.out.println("Adopting value " + newValue);
                     proposerPhase2(newValue, stubs);
-                    if(reqid != newValue){
+                    if (reqid != newValue) {
                         innitPaxos(stubs, reqid);
                     }
                 } else {
@@ -206,13 +173,12 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 }
 
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(value);
-                if (pendingRequest != null && value == server_state.idQueue.peekFirst()) {
-                    if(checkPrevRuns(paxosRun)){
+                if (pendingRequest != null && server_state.idQueue.peekFirst() != null && value == server_state.idQueue.peekFirst()) {
+                    if (checkPrevRuns(paxosRun)) {
                         server_state.futureValues.put(paxosRun, value);
-                    }
-                    else{
+                    } else {
                         //Commit all the values that reached consesus after but have a lower paxosRun
-                        if(!server_state.futureValues.isEmpty()){
+                        if (!server_state.futureValues.isEmpty()) {
                             commitOldValues();
                         }
                         commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
@@ -231,51 +197,51 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             System.out.println("Panic...error commiting");
     }
 
-    public int nextPaxosRun(){
-        int i=paxosRun;
-
-        while(server_state.proposedValue.get(i) != -1){
-            i++;
+    public int nextPaxosRun() {
+        int currPaxosRun = paxosRun;
+        while (server_state.proposedValue.get(currPaxosRun) != -1) {
+            currPaxosRun++;
         }
 
-        return i;
+        return currPaxosRun;
     }
 
     public DadkvsMain.CommitRequest searchRequest(int reqId) {
-        if(server_state.pendingRequests.isEmpty()){
+        if (server_state.pendingRequests.isEmpty()) {
             return null;
         }
         for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
-            //If the incoming request is stored and 
-            if (pendingRequest.getReqid() == reqId && reqId == server_state.idQueue.peekFirst()) {
+            //If the incoming request is stored and
+            Integer nextReq = server_state.idQueue.peekFirst();
+            if (pendingRequest.getReqid() == reqId && nextReq != null && reqId == nextReq) {
                 return pendingRequest;
             }
         }
         return null;
     }
 
-    public void commitValue(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver, int reqid){
+    public void commitValue(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver, int reqid) {
         System.out.println("Commiting request: " + reqid);
 
         int key1 = request.getKey1();
         int version1 = request.getVersion1();
         int key2 = request.getKey2();
         int version2 = request.getVersion2();
-        int writekey = request.getWritekey();
-        int writeval = request.getWriteval();
+        int writeKey = request.getWritekey();
+        int writeVal = request.getWriteval();
 
         //If the commit is for the key 0, it means it is a reconfiguration
-        if(writekey == 0){
-            reconfig(writeval);
-            System.out.println("Incoming reconfiguration: From " + (writeval-1) + " to " + writeval + "\n");
+        if (writeKey == 0) {
+            reConfig(writeVal);
+            System.out.println("Incoming reconfiguration: From " + (writeVal - 1) + " to " + writeVal + "\n");
         }
 
         // for debug purposes
-        System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writekey + " writeval " + writeval);
+        System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writeKey + " writeval " + writeVal);
 
         this.timestamp++;
-        TransactionRecord txrecord = new TransactionRecord(key1, version1, key2, version2, writekey, writeval, this.timestamp);
-        boolean result = this.server_state.store.commit(txrecord);
+        TransactionRecord txRecord = new TransactionRecord(key1, version1, key2, version2, writeKey, writeVal, this.timestamp);
+        boolean result = this.server_state.store.commit(txRecord);
 
         // for debug purposes
         System.out.println("Result is ready for request with reqid " + reqid);
@@ -287,7 +253,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         responseObserver.onCompleted();
     }
 
-    public void reconfig(int config){
+    public void reConfig(int config) {
 
         server_state.currentConfig = config;
         server_state.onlyLearners.clear();
@@ -302,26 +268,26 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
     }
 
-    public boolean checkPrevRuns(int paxosRun){
+    public boolean checkPrevRuns(int paxosRun) {
 
-        for(int i=1; i<paxosRun; i++){
+        for (int i = 1; i < paxosRun; i++) {
             //If we find a run of paxos that is not finished, we return true
-            if(server_state.isCommited.get(i) != true){
+            if (!server_state.isCommited.get(i)) {
                 return true;
             }
         }
         return false;
     }
 
-    public void commitOldValues(){
+    public void commitOldValues() {
         int value;
         DadkvsMain.CommitRequest pendingRequest;
 
         // Get the keys from the map and sort them
         List<Integer> sortedKeys = new ArrayList<>(server_state.futureValues.keySet());
         Collections.sort(sortedKeys);
-        
-        for(Integer key: sortedKeys){
+
+        for (Integer key : sortedKeys) {
             value = server_state.futureValues.get(key);
             pendingRequest = searchRequest(value);
 
@@ -329,6 +295,22 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             server_state.idQueue.remove(value);
             server_state.isCommited.set(key, true);
             server_state.futureValues.remove(key);
+        }
+    }
+
+    private void WaitForUnfreeze() {
+        server_state.lock.lock();
+        try {
+            while (server_state.isFrozen) {
+                server_state.freezeCondition.await();
+            }
+            if (server_state.slowMode) {
+                Thread.sleep(server_state.sleepDelay);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            server_state.lock.unlock();
         }
     }
 }

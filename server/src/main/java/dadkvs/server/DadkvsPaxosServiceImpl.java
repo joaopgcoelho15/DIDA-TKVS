@@ -44,12 +44,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     @Override
     public void phaseone(DadkvsServer.PhaseOneRequest request, StreamObserver<DadkvsServer.PhaseOneReply> responseObserver) {
-        try{
+        try {
             if (server_state.slowMode) {
                 Thread.sleep(server_state.sleepDelay);
             }
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
@@ -89,12 +88,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     @Override
     public void phasetwo(DadkvsServer.PhaseTwoRequest request, StreamObserver<DadkvsServer.PhaseTwoReply> responseObserver) {
-        try{
+        try {
             if (server_state.slowMode) {
                 Thread.sleep(server_state.sleepDelay);
             }
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
@@ -128,12 +126,12 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                 }
 
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(value);
-                if (pendingRequest != null && server_state.idQueue.peekFirst() == value) {
-                    if(mainService.checkPrevRuns(paxosRun)){
+                Integer current = server_state.idQueue.peekFirst();
+                if (pendingRequest != null && current != null && current == value) {
+                    if (mainService.checkPrevRuns(paxosRun)) {
                         server_state.futureValues.put(paxosRun, value);
-                    }
-                    else{
-                        if(!server_state.futureValues.isEmpty()){
+                    } else {
+                        if (!server_state.futureValues.isEmpty()) {
                             mainService.commitOldValues();
                         }
                         mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
@@ -142,7 +140,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                     }
                 }
             }
-            
+
             broadcastToLearners(value, currentStamp, paxosRun);
         } else {
             //Ignore the request
@@ -157,12 +155,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     @Override
     public void learn(DadkvsServer.LearnRequest request, StreamObserver<DadkvsServer.LearnReply> responseObserver) {
-        try{
+        try {
             if (server_state.slowMode) {
                 Thread.sleep(server_state.sleepDelay);
             }
-        }
-        catch (InterruptedException e) {
+        } catch (InterruptedException e) {
             Thread.currentThread().interrupt();
         }
 
@@ -179,15 +176,14 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             server_state.proposedValue.set(paxosRun, reqid);
 
             //If I have never received this value, store it and set the counter to 1
-            if(!learnedValues.containsKey(reqid)){
+            if (!learnedValues.containsKey(reqid)) {
                 learnedValues.put(reqid, 1);
+            } else {
+                learnedValues.replace(reqid, learnedValues.get(reqid) + 1);
             }
-            else{
-                learnedValues.replace(reqid, learnedValues.get(reqid)+1);
-            }
-            
+
             //If a consensus has been reached we can commit the value
-            if(learnedValues.get(reqid) == 2){
+            if (learnedValues.get(reqid) == 2) {
                 //If the queue is empty, it means that if I have the request I should do it now
                 if (server_state.idQueue.isEmpty()) {
                     if (!server_state.idQueue.contains(reqid) && !server_state.isCommited.get(paxosRun)) {
@@ -195,12 +191,12 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                     }
 
                     DadkvsMain.CommitRequest pendingRequest = searchRequest(reqid);
-                    if (pendingRequest != null && server_state.idQueue.peekFirst() == reqid) {
-                        if(mainService.checkPrevRuns(paxosRun)){
+                    Integer current = server_state.idQueue.peekFirst();
+                    if (pendingRequest != null && current != null && current == reqid) {
+                        if (mainService.checkPrevRuns(paxosRun)) {
                             server_state.futureValues.put(paxosRun, reqid);
-                        }
-                        else{
-                            if(!server_state.futureValues.isEmpty()){
+                        } else {
+                            if (!server_state.futureValues.isEmpty()) {
                                 mainService.commitOldValues();
                             }
                             mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), reqid);
@@ -213,7 +209,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                     if (!server_state.idQueue.contains(reqid) && !server_state.isCommited.get(paxosRun)) {
                         server_state.idQueue.addLast(reqid);
                     }
-                }               
+                }
             }
             alreadyCommited.set(paxosRun, true);
             result = true;
@@ -231,8 +227,9 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     public DadkvsMain.CommitRequest searchRequest(int reqId) {
         for (DadkvsMain.CommitRequest pendingRequest : server_state.pendingRequests.keySet()) {
-            //If the incoming request is stored and 
-            if (pendingRequest.getReqid() == reqId && reqId == server_state.idQueue.peekFirst()) {
+            //If the incoming request is stored and
+            Integer current = server_state.idQueue.peekFirst();
+            if (pendingRequest.getReqid() == reqId && current != null && reqId == current) {
                 return pendingRequest;
             }
         }

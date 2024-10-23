@@ -11,7 +11,6 @@ import io.grpc.Server;
 import io.grpc.ServerBuilder;
 
 
-
 public class DadkvsServer {
 
     static DadkvsServerState server_state;
@@ -57,7 +56,7 @@ public class DadkvsServer {
 
         final BindableService console_impl = new DadkvsConsoleServiceImpl(server_state);
         final BindableService service_impl = new DadkvsMainServiceImpl(server_state, stubs);
-        final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state, stubs, (DadkvsMainServiceImpl)service_impl);
+        final BindableService paxos_impl = new DadkvsPaxosServiceImpl(server_state, stubs, (DadkvsMainServiceImpl) service_impl);
 
         server_state.currentConfig = server_state.store.read(0).getValue();
 
