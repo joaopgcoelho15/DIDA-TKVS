@@ -7,8 +7,7 @@ import dadkvs.DadkvsConsoleServiceGrpc;
 import io.grpc.stub.StreamObserver;
 
 public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsConsoleServiceImplBase {
-
-
+    
     DadkvsServerState server_state;
 
     public DadkvsConsoleServiceImpl(DadkvsServerState state) {
@@ -40,6 +39,24 @@ public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsCon
     public void setdebug(DadkvsConsole.SetDebugRequest request, StreamObserver<DadkvsConsole.SetDebugReply> responseObserver) {
         // for debug purposes
         System.out.println(request);
+        int mode = request.getMode();
+
+        switch (mode) {
+            case 1 -> System.exit(-1);
+            case 2 -> {
+                server_state.lock.lock();
+                server_state.isFrozen = true;
+            }
+            case 3 -> {
+                server_state.lock.lock();
+                try {
+                    server_state.isFrozen = false;
+                    server_state.freezeCondition.signalAll();
+                } finally {
+                    server_state.lock.unlock();
+                }
+            }
+        }
 
         boolean response_value = true;
 

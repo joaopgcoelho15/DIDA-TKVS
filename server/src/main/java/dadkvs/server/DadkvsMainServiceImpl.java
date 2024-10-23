@@ -85,7 +85,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
     public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid) {
         System.out.println("Paxos Run: " + paxosRun + " Value: " + reqid);
-        DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(myStamp.get(paxosRun)).setPhase1Index(paxosRun).build();
+        DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(myStamp.get(paxosRun)).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).build();
 
         ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseOneReply> promises_collector = new GenericResponseCollector<>(promises, 2);
@@ -144,7 +144,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
     public void proposerPhase2(int value, HashMap<Integer, DadkvsServerServiceStub> stubs) {
         System.out.println("Starting phase 2");
-        DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).build();
+        DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).setPhase2Config(server_state.currentConfig).build();
 
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseTwoReply> acceptRequests_collector = new GenericResponseCollector<>(acceptRequests, 4);
@@ -237,10 +237,10 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         int writeval = request.getWriteval();
 
         //If the commit is for the key 0, it means it is a reconfiguration
-        /*if(writekey == 0){
+        if(writekey == 0){
             reconfig(writeval);
             System.out.println("Incoming reconfiguration: From " + (writeval-1) + " to " + writeval + "\n");
-        }*/
+        }
 
         // for debug purposes
         System.out.println("reqid " + reqid + " key1 " + key1 + " v1 " + version1 + " k2 " + key2 + " v2 " + version2 + " wk " + writekey + " writeval " + writeval);

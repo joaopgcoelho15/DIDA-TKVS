@@ -49,6 +49,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         int currentStamp = request.getPhase1Timestamp();
         int paxosRun = request.getPhase1Index();
+        int config = request.getPhase1Config();
         server_state.currentPaxosRun = paxosRun;
 
         DadkvsServer.PhaseOneReply response;
@@ -59,17 +60,17 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             if (server_state.proposedValue.get(paxosRun) >= 0) {
                 //Send PROMISE IDp accepted IDa, value
                 response = DadkvsServer.PhaseOneReply.newBuilder()
-                        .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(server_state.proposedValue.get(paxosRun)).setPhase1Index(paxosRun).build();
+                        .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(server_state.proposedValue.get(paxosRun)).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).build();
             } else {
                 //Send PROMISE IDp
                 response = DadkvsServer.PhaseOneReply.newBuilder()
-                        .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).setPhase1Index(paxosRun).build();
+                        .setPhase1Accepted(true).setPhase1Timestamp(-1).setPhase1Value(-1).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).build();
             }
             leaderStamp_read.set(paxosRun, currentStamp);
         } else {
             //Ignore the request
             response = DadkvsServer.PhaseOneReply.newBuilder()
-                    .setPhase1Accepted(false).build();
+                    .setPhase1Accepted(false).setPhase1Config(server_state.currentConfig).build();
         }
 
         responseObserver.onNext(response);
@@ -85,6 +86,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int currentStamp = request.getPhase2Timestamp();
         int value = request.getPhase2Value();
         int paxosRun = request.getPhase2Index();
+        int config = request.getPhase2Config();
 
         DadkvsServer.PhaseTwoReply response;
 
@@ -99,7 +101,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
             //Reply ACCEPT IDp, value
             response = DadkvsServer.PhaseTwoReply.newBuilder()
-                    .setPhase2Accepted(true).setPhase2Index(paxosRun).build();
+                    .setPhase2Accepted(true).setPhase2Index(paxosRun).setPhase2Config(server_state.currentConfig).build();
             //Also broadcast to all onlyLearners
 
             if (server_state.idQueue.isEmpty()) {
@@ -128,7 +130,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             //Ignore the request
             System.out.println("Ignoring phase two request");
             response = DadkvsServer.PhaseTwoReply.newBuilder()
-                    .setPhase2Accepted(false).build();
+                    .setPhase2Accepted(false).setPhase2Config(server_state.currentConfig).build();
         }
 
         responseObserver.onNext(response);

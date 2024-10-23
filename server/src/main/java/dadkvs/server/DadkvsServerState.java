@@ -9,6 +9,10 @@ import java.util.List;
 import dadkvs.DadkvsMain;
 import io.grpc.stub.StreamObserver;
 
+import java.util.concurrent.locks.Condition;
+import java.util.concurrent.locks.Lock;
+import java.util.concurrent.locks.ReentrantLock;
+
 public class DadkvsServerState {
     boolean i_am_leader;
     int debug_mode;
@@ -30,6 +34,10 @@ public class DadkvsServerState {
     KeyValueStore store;
     MainLoop main_loop;
     Thread main_loop_worker;
+
+    public final Lock lock = new ReentrantLock();
+    public final Condition freezeCondition = lock.newCondition();
+    public boolean isFrozen = false;
 
 
     public DadkvsServerState(int kv_size, int port, int myself) {
