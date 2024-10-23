@@ -44,6 +44,15 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     @Override
     public void phaseone(DadkvsServer.PhaseOneRequest request, StreamObserver<DadkvsServer.PhaseOneReply> responseObserver) {
+        try{
+            if (server_state.slowMode) {
+                Thread.sleep(server_state.sleepDelay);
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         // for debug purposes
         System.out.println("Receiving phase1 request: " + request);
 
@@ -80,6 +89,15 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     @Override
     public void phasetwo(DadkvsServer.PhaseTwoRequest request, StreamObserver<DadkvsServer.PhaseTwoReply> responseObserver) {
+        try{
+            if (server_state.slowMode) {
+                Thread.sleep(server_state.sleepDelay);
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         // for debug purposes
         System.out.println("Receiving phase two request: " + request);
 
@@ -139,6 +157,15 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
     @Override
     public void learn(DadkvsServer.LearnRequest request, StreamObserver<DadkvsServer.LearnReply> responseObserver) {
+        try{
+            if (server_state.slowMode) {
+                Thread.sleep(server_state.sleepDelay);
+            }
+        }
+        catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        }
+
         // for debug purposes
         System.out.println("Receiving learn request: " + request);
 
@@ -230,22 +257,5 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                 stubs.get(i).learn(learnRequest, learn_observer);
             }
         });
-
-        /*learn_collector.waitForTarget(4);
-
-        int acceptedLearns = 0;
-
-        if (learnRequests.size() >= 4){
-            for (DadkvsServer.LearnReply acceptLearn : learnRequests) {
-                //If the REQUEST-ACCEPT was accepted
-                if (acceptLearn.getLearnaccepted()) {
-                    acceptedLearns++;
-                }
-            }
-
-            if(acceptedLearns >= 3){
-
-            }
-        }*/
     }
 }

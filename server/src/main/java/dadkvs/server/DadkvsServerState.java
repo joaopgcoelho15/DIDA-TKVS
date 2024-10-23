@@ -7,6 +7,7 @@ import java.util.LinkedList;
 import java.util.List;
 
 import dadkvs.DadkvsMain;
+import io.grpc.Server;
 import io.grpc.stub.StreamObserver;
 
 import java.util.concurrent.locks.Condition;
@@ -15,6 +16,7 @@ import java.util.concurrent.locks.ReentrantLock;
 
 public class DadkvsServerState {
     boolean i_am_leader;
+    boolean slowMode = false;
     int debug_mode;
     int base_port;
     int my_id;
@@ -22,6 +24,7 @@ public class DadkvsServerState {
     int paxosStamp;
     int currentConfig;
     int currentPaxosRun;
+    int sleepDelay = 1000;
 
     LinkedList<Integer> idQueue;
     HashMap<Integer, Integer> futureValues;

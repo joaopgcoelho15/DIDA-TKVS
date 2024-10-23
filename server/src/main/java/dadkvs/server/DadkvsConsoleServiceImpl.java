@@ -4,6 +4,7 @@ package dadkvs.server;
 
 import dadkvs.DadkvsConsole;
 import dadkvs.DadkvsConsoleServiceGrpc;
+import io.grpc.Server;
 import io.grpc.stub.StreamObserver;
 
 public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsConsoleServiceImplBase {
@@ -42,12 +43,16 @@ public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsCon
         int mode = request.getMode();
 
         switch (mode) {
-            case 1 -> System.exit(-1);
+            case 1 -> {
+                System.exit(-1);
+            }
             case 2 -> {
+                System.out.println("Slow mode on");
                 server_state.lock.lock();
                 server_state.isFrozen = true;
             }
             case 3 -> {
+                System.out.println("Slow mode off");
                 server_state.lock.lock();
                 try {
                     server_state.isFrozen = false;
@@ -55,6 +60,14 @@ public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsCon
                 } finally {
                     server_state.lock.unlock();
                 }
+            }
+            case 4 -> {
+                System.out.println("Enabling slow mode");
+                server_state.slowMode = true;
+            }
+            case 5 -> {
+                System.out.println("Disabling slow mode");
+                server_state.slowMode = false;
             }
         }
 

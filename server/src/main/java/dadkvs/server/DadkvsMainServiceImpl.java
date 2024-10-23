@@ -37,6 +37,20 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         // for debug purposes
         System.out.println("Receiving read request:" + request);
 
+        server_state.lock.lock();
+        try {
+            while (server_state.isFrozen) {
+                server_state.freezeCondition.await();
+            }
+            if (server_state.slowMode) {
+                Thread.sleep(server_state.sleepDelay);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            server_state.lock.unlock();
+        }
+
         int reqid = request.getReqid();
         int key = request.getKey();
         VersionedValue vv = this.server_state.store.read(key);
@@ -52,6 +66,20 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
     public void committx(DadkvsMain.CommitRequest request, StreamObserver<DadkvsMain.CommitReply> responseObserver) {
         // for debug purposes
         System.out.println("Receiving commit request:" + request);
+
+        server_state.lock.lock();
+        try {
+            while (server_state.isFrozen) {
+                server_state.freezeCondition.await();
+            }
+            if (server_state.slowMode) {
+                Thread.sleep(server_state.sleepDelay);
+            }
+        } catch (InterruptedException e) {
+            Thread.currentThread().interrupt();
+        } finally {
+            server_state.lock.unlock();
+        }
 
         int reqid = request.getReqid();
 
