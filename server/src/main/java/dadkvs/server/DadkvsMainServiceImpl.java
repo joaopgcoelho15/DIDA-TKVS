@@ -69,7 +69,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
 
         if (!server_state.idQueue.isEmpty()) {
             if (reqId == server_state.idQueue.peekFirst()) {
-                //TODO: O próximo é o 10, mas o 11 pode já estar na fila, logo temos de verificar qual é o currentPaxosRun
+
                 commitValue(request, responseObserver, reqId);
                 server_state.idQueue.removeFirst();
             }
