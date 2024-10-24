@@ -54,7 +54,14 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         System.out.println("Receiving commit request:" + request);
 
         WaitForUnfreeze();
+
         int reqId = request.getReqid();
+        boolean reconfig = false;
+
+        if(request.getWritekey() == 0){
+            reconfig = true;
+        } 
+
         if (server_state.proposedValue.contains(reqId)) {
             System.out.println("Value already commited\n");
             return;
@@ -66,20 +73,21 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 commitValue(request, responseObserver, reqId);
                 server_state.idQueue.removeFirst();
             }
-        } else if (server_state.i_am_leader) {
+        } else if (server_state.i_am_leader && !server_state.onlyLearners.contains(server_state.my_id)) {
             //There is already a value commited to this paxosRun
             if (server_state.proposedValue.get(paxosRun) != -1) {
                 paxosRun += nextPaxosRun();
             }
             server_state.addPendingRequest(request, responseObserver);
-            innitPaxos(stubs, reqId);
+            innitPaxos(stubs, reqId, reconfig);
         } else {
             server_state.addPendingRequest(request, responseObserver);
         }
     }
 
-    public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid) {
+    public void innitPaxos(HashMap<Integer, DadkvsServerServiceStub> stubs, int reqid, boolean reconfig) {
         System.out.println("Paxos Run: " + paxosRun + " Value: " + reqid);
+
         DadkvsServer.PhaseOneRequest proposeRequest = DadkvsServer.PhaseOneRequest.newBuilder().setPhase1Timestamp(myStamp.get(paxosRun)).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).build();
 
         ArrayList<DadkvsServer.PhaseOneReply> promises = new ArrayList<>();
@@ -99,6 +107,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         int acceptedValue = -1;
         int newValue = -1;
         int highestID = -1;
+        boolean stop = false;
 
         if (promises.size() >= 2) {
 
@@ -107,6 +116,11 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 if (promise.getPhase1Accepted()) {
                     acceptedPrepares++;
                     acceptedValue = promise.getPhase1Value();
+
+                    if(promise.getStop()){
+                        stop = true;
+                    }
+
                     //If there was already a commited value this leader adopts this value
                     if (acceptedValue != -1 && promise.getPhase1Timestamp() > highestID) {
                         newValue = acceptedValue;
@@ -116,30 +130,31 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             }
             //If majority is accepted go to phase 2
             if (acceptedPrepares > 0) {
+                //If another leader has already proposed a value
                 if (newValue != -1) {
                     System.out.println("Adopting value " + newValue);
-                    proposerPhase2(newValue, stubs);
+                    proposerPhase2(newValue, stubs, stop);
                     if (reqid != newValue) {
-                        innitPaxos(stubs, reqid);
+                        innitPaxos(stubs, reqid, reconfig);
                     }
                 } else {
                     System.out.println("No value to adopt, proposing new value");
-                    proposerPhase2(reqid, stubs);
+                    proposerPhase2(reqid, stubs, reconfig);
                 }
             }
             //If the prepare request was not accepted, try again with a new timestamp
             else {
                 myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
                 System.out.println("Prepare not accepted, trying again with new timestamp");
-                innitPaxos(stubs, reqid);
+                innitPaxos(stubs, reqid, reconfig);
             }
         } else
             System.out.println("Panic...error preparing");
     }
 
-    public void proposerPhase2(int value, HashMap<Integer, DadkvsServerServiceStub> stubs) {
+    public void proposerPhase2(int value, HashMap<Integer, DadkvsServerServiceStub> stubs, boolean reconfig) {
         System.out.println("Starting phase 2");
-        DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).setPhase2Config(server_state.currentConfig).build();
+        DadkvsServer.PhaseTwoRequest proposeRequest = DadkvsServer.PhaseTwoRequest.newBuilder().setPhase2Timestamp(myStamp.get(paxosRun)).setPhase2Value(value).setPhase2Index(paxosRun).setPhase2Config(server_state.currentConfig).setStop(reconfig).build();
 
         ArrayList<DadkvsServer.PhaseTwoReply> acceptRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.PhaseTwoReply> acceptRequests_collector = new GenericResponseCollector<>(acceptRequests, 4);
@@ -175,15 +190,16 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
                 DadkvsMain.CommitRequest pendingRequest = searchRequest(value);
                 if (pendingRequest != null && server_state.idQueue.peekFirst() != null && value == server_state.idQueue.peekFirst()) {
                     if (checkPrevRuns(paxosRun)) {
+                        System.out.println("There are previous runs that are not finished\n");
                         server_state.futureValues.put(paxosRun, value);
                     } else {
                         //Commit all the values that reached consesus after but have a lower paxosRun
-                        if (!server_state.futureValues.isEmpty()) {
-                            commitOldValues();
-                        }
                         commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
                         server_state.idQueue.removeFirst();
                         server_state.isCommited.set(paxosRun, true);
+                        if (!server_state.futureValues.isEmpty()) {
+                            commitFutureValues();
+                        }
                     }
                 }
 
@@ -191,15 +207,15 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             } else {
                 myStamp.set(paxosRun, myStamp.get(paxosRun) + 3);
                 System.out.println("REQUEST-ACCEPT not accepted, trying again with new timestamp\n");
-                innitPaxos(stubs, value);
+                innitPaxos(stubs, value, reconfig);
             }
         } else
             System.out.println("Panic...error commiting");
     }
 
     public int nextPaxosRun() {
-        int currPaxosRun = paxosRun;
-        while (server_state.proposedValue.get(currPaxosRun) != -1) {
+        int currPaxosRun = 0;
+        while (server_state.proposedValue.get(currPaxosRun + paxosRun) != -1) {
             currPaxosRun++;
         }
 
@@ -279,7 +295,7 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
         return false;
     }
 
-    public void commitOldValues() {
+    public void commitFutureValues() {
         int value;
         DadkvsMain.CommitRequest pendingRequest;
 

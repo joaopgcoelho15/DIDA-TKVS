@@ -25,6 +25,7 @@ public class DadkvsServerState {
     int currentConfig;
     int currentPaxosRun;
     int sleepDelay = 1000;
+    int stoppedPaxosRun = 0;
 
     LinkedList<Integer> idQueue;
     HashMap<Integer, Integer> futureValues;

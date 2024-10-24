@@ -43,7 +43,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
 
     @Override
-    public void phaseone(DadkvsServer.PhaseOneRequest request, StreamObserver<DadkvsServer.PhaseOneReply> responseObserver) {
+    public synchronized void phaseone(DadkvsServer.PhaseOneRequest request, StreamObserver<DadkvsServer.PhaseOneReply> responseObserver) {
         try {
             if (server_state.slowMode) {
                 Thread.sleep(server_state.sleepDelay);
@@ -58,6 +58,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int currentStamp = request.getPhase1Timestamp();
         int paxosRun = request.getPhase1Index();
         int config = request.getPhase1Config();
+
         server_state.currentPaxosRun = paxosRun;
 
         DadkvsServer.PhaseOneReply response;
@@ -67,8 +68,14 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             //If a value has already been accepted previously
             if (server_state.proposedValue.get(paxosRun) >= 0) {
                 //Send PROMISE IDp accepted IDa, value
-                response = DadkvsServer.PhaseOneReply.newBuilder()
-                        .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(server_state.proposedValue.get(paxosRun)).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).build();
+                if(paxosRun == server_state.stoppedPaxosRun){
+                    //If the current paxosRun is a stop, warn the leader
+                    response = DadkvsServer.PhaseOneReply.newBuilder()
+                            .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(server_state.proposedValue.get(paxosRun)).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).setStop(true).build();
+                } else {
+                    response = DadkvsServer.PhaseOneReply.newBuilder()
+                            .setPhase1Accepted(true).setPhase1Timestamp(leaderStamp_read.get(paxosRun)).setPhase1Value(server_state.proposedValue.get(paxosRun)).setPhase1Index(paxosRun).setPhase1Config(server_state.currentConfig).build();
+                }
             } else {
                 //Send PROMISE IDp
                 response = DadkvsServer.PhaseOneReply.newBuilder()
@@ -87,7 +94,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
     }
 
     @Override
-    public void phasetwo(DadkvsServer.PhaseTwoRequest request, StreamObserver<DadkvsServer.PhaseTwoReply> responseObserver) {
+    public synchronized void phasetwo(DadkvsServer.PhaseTwoRequest request, StreamObserver<DadkvsServer.PhaseTwoReply> responseObserver) {
         try {
             if (server_state.slowMode) {
                 Thread.sleep(server_state.sleepDelay);
@@ -103,6 +110,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int value = request.getPhase2Value();
         int paxosRun = request.getPhase2Index();
         int config = request.getPhase2Config();
+        boolean stop = request.getStop();
 
         DadkvsServer.PhaseTwoReply response;
 
@@ -114,6 +122,9 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             leaderStamp_write.set(paxosRun, currentStamp);
             //Store the agreed value
             server_state.proposedValue.set(paxosRun, value);
+            if(stop){
+                server_state.stoppedPaxosRun = paxosRun;
+            }
 
             //Reply ACCEPT IDp, value
             response = DadkvsServer.PhaseTwoReply.newBuilder()
@@ -131,17 +142,18 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                     if (mainService.checkPrevRuns(paxosRun)) {
                         server_state.futureValues.put(paxosRun, value);
                     } else {
-                        if (!server_state.futureValues.isEmpty()) {
-                            mainService.commitOldValues();
-                        }
                         mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), value);
                         server_state.idQueue.removeFirst();
                         server_state.isCommited.set(paxosRun, true);
+                        //If there are any future values, commit them if there is no stop request
+                        if (!server_state.futureValues.isEmpty() && !stop) {
+                            mainService.commitFutureValues();
+                        } 
                     }
                 }
             }
 
-            broadcastToLearners(value, currentStamp, paxosRun);
+            broadcastToLearners(value, currentStamp, paxosRun, stop);
         } else {
             //Ignore the request
             System.out.println("Ignoring phase two request");
@@ -169,6 +181,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int reqid = request.getLearnvalue();
         int timestamp = request.getLearntimestamp();
         int paxosRun = request.getLearnindex();
+        boolean stop = request.getStop();
         boolean result;
 
         if (timestamp >= leaderStamp_write.get(paxosRun)) {
@@ -184,6 +197,10 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
             //If a consensus has been reached we can commit the value
             if (learnedValues.get(reqid) == 2) {
+                if(stop){
+                    server_state.stoppedPaxosRun = paxosRun;
+                }
+
                 //If the queue is empty, it means that if I have the request I should do it now
                 if (server_state.idQueue.isEmpty()) {
                     if (!server_state.idQueue.contains(reqid) && !server_state.isCommited.get(paxosRun)) {
@@ -197,7 +214,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
                             server_state.futureValues.put(paxosRun, reqid);
                         } else {
                             if (!server_state.futureValues.isEmpty()) {
-                                mainService.commitOldValues();
+                                mainService.commitFutureValues();
                             }
                             mainService.commitValue(pendingRequest, server_state.pendingRequests.remove(pendingRequest), reqid);
                             server_state.idQueue.removeFirst();
@@ -236,8 +253,8 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         return null;
     }
 
-    public void broadcastToLearners(int value, int timestamp, int paxosRun) {
-        DadkvsServer.LearnRequest learnRequest = DadkvsServer.LearnRequest.newBuilder().setLearnvalue(value).setLearntimestamp(timestamp).setLearnindex(paxosRun).build();
+    public void broadcastToLearners(int value, int timestamp, int paxosRun, boolean stop) {
+        DadkvsServer.LearnRequest learnRequest = DadkvsServer.LearnRequest.newBuilder().setLearnvalue(value).setLearntimestamp(timestamp).setLearnindex(paxosRun).setStop(stop).build();
 
         ArrayList<DadkvsServer.LearnReply> learnRequests = new ArrayList<>();
         GenericResponseCollector<DadkvsServer.LearnReply> learn_collector = new GenericResponseCollector<>(learnRequests, 4);
