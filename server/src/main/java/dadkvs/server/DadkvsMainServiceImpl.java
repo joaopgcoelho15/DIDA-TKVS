@@ -67,12 +67,14 @@ public class DadkvsMainServiceImpl extends DadkvsMainServiceGrpc.DadkvsMainServi
             return;
         }
 
+        //If there is a value in the queue, we check if it is the next value to be commited
         if (!server_state.idQueue.isEmpty()) {
             if (reqId == server_state.idQueue.peekFirst()) {
 
                 commitValue(request, responseObserver, reqId);
                 server_state.idQueue.removeFirst();
             }
+        //If I am the leader and I am in the right configuration    
         } else if (server_state.i_am_leader && !server_state.onlyLearners.contains(server_state.my_id)) {
             //There is already a value commited to this paxosRun
             if (server_state.proposedValue.get(paxosRun) != -1) {

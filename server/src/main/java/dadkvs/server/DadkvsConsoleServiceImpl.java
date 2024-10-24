@@ -43,7 +43,10 @@ public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsCon
         // for debug purposes
         System.out.println("I am the leader = " + this.server_state.i_am_leader);
 
-        commitStoredValues();
+        //If I am a leader in this configuration, I will commit all the stored values
+        if(!this.server_state.onlyLearners.contains(server_state.my_id)){
+            commitStoredValues();
+        }
 
         this.server_state.main_loop.wakeup();
 
