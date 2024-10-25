@@ -44,6 +44,7 @@ public class DadkvsConsoleServiceImpl extends DadkvsConsoleServiceGrpc.DadkvsCon
         System.out.println("I am the leader = " + this.server_state.i_am_leader);
 
         //If I am a leader in this configuration, I will commit all the stored values
+        System.out.println("Pending requests size = " + server_state.pendingRequests);
         if(!this.server_state.onlyLearners.contains(server_state.my_id)){
             commitStoredValues();
         }
