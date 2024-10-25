@@ -57,9 +57,11 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
         int currentStamp = request.getPhase1Timestamp();
         int paxosRun = request.getPhase1Index();
-        int config = request.getPhase1Config();
+        if(paxosRun > mainService.paxosRun){
+            mainService.paxosRun = paxosRun;
+        }
 
-        server_state.currentPaxosRun = paxosRun;
+        int config = request.getPhase1Config();
 
         DadkvsServer.PhaseOneReply response;
 
@@ -109,6 +111,10 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int currentStamp = request.getPhase2Timestamp();
         int value = request.getPhase2Value();
         int paxosRun = request.getPhase2Index();
+        if(paxosRun > mainService.paxosRun){
+            mainService.paxosRun = paxosRun;
+        }
+
         int config = request.getPhase2Config();
         boolean stop = request.getStop();
 
@@ -132,7 +138,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
             //Also broadcast to all onlyLearners
 
             if (server_state.idQueue.isEmpty()) {
-                if (!server_state.idQueue.contains(value) && !server_state.isCommited.get(paxosRun)) {
+                if (!server_state.isCommited.get(paxosRun)) {
                     server_state.idQueue.add(value);
                 }
 
@@ -181,6 +187,10 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
         int reqid = request.getLearnvalue();
         int timestamp = request.getLearntimestamp();
         int paxosRun = request.getLearnindex();
+        if(paxosRun > mainService.paxosRun){
+            mainService.paxosRun = paxosRun;
+        }
+
         boolean stop = request.getStop();
         boolean result;
 
@@ -203,7 +213,7 @@ public class DadkvsPaxosServiceImpl extends DadkvsServerServiceGrpc.DadkvsServer
 
                 //If the queue is empty, it means that if I have the request I should do it now
                 if (server_state.idQueue.isEmpty()) {
-                    if (!server_state.idQueue.contains(reqid) && !server_state.isCommited.get(paxosRun)) {
+                    if (!server_state.isCommited.get(paxosRun)) {
                         server_state.idQueue.addLast(reqid);
                     }
 
